@@ -2,59 +2,34 @@
  * @author Michal Witanowski
  */
 
-#pramga once
+#pragma once
 
-#include <stdlib.h>
-#include <stdio.h>
+#include "vfsstructures.hpp"
+#include "vfsfile.hpp"
 #include <vector>
-
-/**
- * VFS file seeking mode
- */
-enum class VfsSeekMode
-{
-    Curr,  //< seek relative to the current position
-    Begin, //< seek relative to the file beginning
-    End    //< seek relative to the file end
-};
-
-/**
- * @brief Class representing an open file in the VFS
- */
-class VfsFile
-{
-public:
-    /**
-     * @brief Read data from the file
-     * @param bytes Number of bytes to read
-     * @param data  Target buffer pointer
-     * @return      Number of bytes read or -1 on error
-     */
-    ssize_t Read(size_t bytes, void* data);
-
-    /**
-     * @brief Write data to the file
-     * @param bytes Number of bytes to write
-     * @param data  Source buffer pointer
-     * @return      Number of bytes written or -1 on error
-     */
-    ssize_t Write(size_t bytes, const void* data);
-
-    /**
-     * @brief Change file cursor
-     * @param offset Offset in bytes
-     * @param mode Seeking mode
-     * @return File currsor after seeking
-     */
-    size_t Seek(ssize_t offset, VfsSeekMode mode);
-};
+#include <string>
 
 /**
  * @brief Class representing VFS
  */
-class Vfs
+class Vfs final
 {
+    friend class VfsFile;
+
+    FILE* mImage;
+    Superblock mSuperblock;
+
+    uint32 ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize);
+    void ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id);
+
+    uint32 ReserveBlock();
+    void ReleaseBlock(uint32 id);
+    uint32 ReserveINode();
+    void ReleaseINode(uint32 id);
+
 public:
+    ~Vfs();
+
     /**
      * @brief Open or create filesystem image file.
      * @param vfsPath Image file path
@@ -63,6 +38,7 @@ public:
 
     /**
      * @brief Initialize filesystem. This will remove all data
+     * @param size Virtual File System size in bytes
      */
     bool Init(size_t size);
 
