@@ -8,3 +8,10 @@
 /CMakeFiles/
 /Makefile
 /cmake_install.cmake
+
+/Debug
+/Release
+*.bin
+*.sdf
+*.opensdf
+*.suo

@@ -18,7 +18,7 @@ public:
      * @param data  Target buffer pointer
      * @return      Number of bytes read or -1 on error
      */
-    ssize_t Read(size_t bytes, void* data);
+    int32 Read(uint32 bytes, void* data);
 
     /**
      * @brief Write data to the file
@@ -26,7 +26,7 @@ public:
      * @param data  Source buffer pointer
      * @return      Number of bytes written or -1 on error
      */
-    ssize_t Write(size_t bytes, const void* data);
+    int32 Write(uint32 bytes, const void* data);
 
     /**
      * @brief Change file cursor
@@ -34,5 +34,5 @@ public:
      * @param mode Seeking mode
      * @return File currsor after seeking
      */
-    size_t Seek(ssize_t offset, VfsSeekMode mode);
+    uint32 Seek(int32 offset, VfsSeekMode mode);
 };

@@ -9,6 +9,14 @@
 #include <vector>
 #include <string>
 
+// block size in bytes
+#define VFS_BLOCK_SIZE 4096
+
+// inode size in bytes
+#define VFS_INODE_SIZE (4*16)
+
+#define VFS_MAGIC 'vfs!'
+
 /**
  * @brief Class representing VFS
  */
@@ -40,14 +48,15 @@ public:
      * @brief Initialize filesystem. This will remove all data
      * @param size Virtual File System size in bytes
      */
-    bool Init(size_t size);
+    bool Init(uint32 size);
 
     /**
      * @brief Open a file in the VFS
-     * @param File path
+     * @param path   File path
+     * @param create Create if does not exist
      * @return File pointer
      */
-    VfsFile* OpenFile(const char* path);
+    VfsFile* OpenFile(const char* path, bool create);
 
     /**
      * @brief Close an opened file
