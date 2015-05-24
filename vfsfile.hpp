@@ -10,6 +10,10 @@ class VfsFile final
     friend class Vfs;
 
     Vfs* mVFS;
+    uint32 mCursor;
+    uint32 mINode;
+
+    VfsFile(Vfs* vfs, uint32 inode);
 
 public:
     /**

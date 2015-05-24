@@ -3,36 +3,61 @@
  */
 
 #include "vfs.hpp"
+#include <assert.h>
 
 
 uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
 {
+    fseek(mImage, VFS_BLOCK_SIZE * firstBitmapBlock, SEEK_SET);
+    for (uint32 i = 0; i < bitmapSize / 8; ++i)
+    {
+        uint8 byte;
+        assert(1 == fread(&byte, 1, 1, mImage));
+
+        if (byte == 0xFF)
+            continue;
+
+        // TODO
+    }
+
     return static_cast<uint32>(-1);
 }
 
 void Vfs::ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id)
 {
+    assert(id < bitmapSize);
+    uint32 byteOffset = VFS_BLOCK_SIZE * firstBitmapBlock + id / 8;
+    uint8 mask = 1 << (id % 8);
 
+    uint8 byte;
+    fseek(mImage, byteOffset, SEEK_SET);
+    assert(1 == fread(&byte, 1, 1, mImage));
+    assert(byte & mask == mask);
+
+    byte &= ~mask;
+
+    fseek(mImage, byteOffset, SEEK_SET);
+    assert(1 == fwrite(&byte, 1, 1, mImage));
 }
 
 uint32 Vfs::ReserveBlock()
 {
-    return static_cast<uint32>(-1);
+    return ReserveBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBitmapBlocks);
 }
 
 void Vfs::ReleaseBlock(uint32 id)
 {
-
+    ReleaseBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBitmapBlocks, id);
 }
 
 uint32 Vfs::ReserveINode()
 {
-    return static_cast<uint32>(-1);
+    return ReserveBitmap(1, mSuperblock.inodeBitmapBlocks);
 }
 
 void Vfs::ReleaseINode(uint32 id)
 {
-
+    ReleaseBitmap(1, mSuperblock.inodeBitmapBlocks, id);
 }
 
 
@@ -94,12 +119,12 @@ VfsFile* Vfs::OpenFile(const char* path, bool create)
     //          * allocate file inode and add to the directory
     //      b) if not found and create == false
     //          * return error
-    return nullptr;
+    return VfsFile();
 }
 
 bool Vfs::Close(VfsFile* file)
 {
-    return true;
+    delete file;
 }
 
 bool Vfs::CreateDir(const char* path)

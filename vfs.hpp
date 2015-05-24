@@ -27,7 +27,20 @@ class Vfs final
     FILE* mImage;
     Superblock mSuperblock;
 
+    /**
+     * Reserve a single item in a bitmap (write bit "1" in an empty field).
+     * @param firstBitmapBlock Index of the first bitmap block
+     * @param bitmapSize       Bitmap size (in bits)
+     * @return Reserved bit index or (-1) if bitmap is full.
+     */
     uint32 ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize);
+
+    /**
+     * Release a single item in a bitmap (write bit "0" in the field).
+     * @param firstBitmapBlock Index of the first bitmap block
+     * @param bitmapSize       Bitmap size (in bits)
+     * @param id               Field ID
+     */
     void ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id);
 
     uint32 ReserveBlock();
