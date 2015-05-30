@@ -4,15 +4,9 @@
 
 #pragma once
 
+#include "vfscommon.hpp"
 #include <stdlib.h>
 #include <stdio.h>
-
-typedef int int32;
-typedef unsigned int uint32;
-typedef short int16;
-typedef unsigned short uint16;
-typedef char int8;
-typedef unsigned char uint8;
 
 struct Superblock
 {
@@ -22,29 +16,18 @@ struct Superblock
     uint32 inodeBlocks;       //< total blocks containing inodes
     uint32 inodeBitmapBlocks; //< number of blocks containing inodes bitmap
     uint32 dataBitmapBlocks;  //< number of blocks containing data blocks bitmap
+    uint32 firstDataBlock;    //< ID of the first block containing data
 
     // TODO: stats, etc.
 };
 
-enum class INodeType : int
+enum class INodeType : uint8
 {
     File,
     Directory
 };
 
-struct INodeDesc
-{
-    uint8 type : 1; //< 0 - regular file, 1 - directory
-
-    /**
-     * Block pointers depth.
-     * 0 - "blockPtr" are direct pointers to data blocks
-     * 1 - "blockPtr" are pointers to blocks containing pointers to data blocks
-     * 2 - "blockPtr" are pointers to blocks containing pointers to blocks containing pointers to data blocks
-     * 3 - not used
-     */
-    uint8 ptrDepth : 2;
-};
+#define INODE_PTRS 6
 
 /**
  * Index Node structure
@@ -52,8 +35,18 @@ struct INodeDesc
 struct INode
 {
     INodeType type;
+
+    /**
+     * Block pointers depth.
+     * 0 - "blockPtr" are direct pointers to data blocks
+     * 1 - "blockPtr" are pointers to blocks containing pointers to data blocks
+     * 2 - "blockPtr" are pointers to blocks containing pointers to blocks containing pointers to data blocks
+     */
+    uint8 ptrDepth;
     uint32 size;
-    uint32 blockPtr[14];
+    uint32 blockPtr[INODE_PTRS];
+
+    INode();
 };
 
 /**
@@ -65,6 +58,8 @@ enum class VfsSeekMode
     Begin, //< seek relative to the file beginning
     End    //< seek relative to the file end
 };
+
+extern const uint32 INVALID_INDEX;
 
 class Vfs;
 class VfsFile;

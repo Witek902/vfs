@@ -79,6 +79,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="vfs.hpp" />
+    <ClInclude Include="vfscommon.hpp" />
     <ClInclude Include="vfsfile.hpp" />
     <ClInclude Include="vfsstructures.hpp" />
   </ItemGroup>
@@ -86,6 +87,7 @@
     <ClCompile Include="test.cpp" />
     <ClCompile Include="vfs.cpp" />
     <ClCompile Include="vfsfile.cpp" />
+    <ClCompile Include="vfsstructures.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -48,6 +48,10 @@ class Vfs final
     uint32 ReserveINode();
     void ReleaseINode(uint32 id);
 
+    uint32 GetINodeByPath(const std::string& path, bool getParent = false);
+    void WriteINode(uint32 id, const INode& inode);
+    void ReadINode(uint32 id, INode& inode);
+
 public:
     ~Vfs();
 
@@ -55,7 +59,7 @@ public:
      * @brief Open or create filesystem image file.
      * @param vfsPath Image file path
      */
-    Vfs(const char* vfsPath);
+    Vfs(const std::string& vfsPath);
 
     /**
      * @brief Initialize filesystem. This will remove all data
@@ -69,7 +73,7 @@ public:
      * @param create Create if does not exist
      * @return File pointer
      */
-    VfsFile* OpenFile(const char* path, bool create);
+    VfsFile* OpenFile(const std::string& path, bool create);
 
     /**
      * @brief Close an opened file
@@ -80,20 +84,20 @@ public:
     /**
      * @brief Create directory
      */
-    bool CreateDir(const char* path);
+    bool CreateDir(const std::string& path);
 
     /**
      * @brief Rename a file or a directory
      * @param src Old path
      * @param dest New path
      */
-    bool Rename(const char* src, const char* dest);
+    bool Rename(const std::string& src, const std::string& dest);
 
     /**
      * @brief Remove a file or an empty directory
      * @param path File or directory path
      */
-    bool Remove(const char* path);
+    bool Remove(const std::string& path);
 
     /**
      * @brief List all files and directories in a directory
