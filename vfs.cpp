@@ -3,7 +3,9 @@
  */
 
 #include "vfs.hpp"
+
 #include <assert.h>
+#include <string.h>
 #include <iostream>
 #include <sstream>
 #include <stack>
@@ -179,10 +181,9 @@ Vfs::~Vfs()
 
 Vfs::Vfs(const std::string& vfsPath)
 {
-    if (mImage)
-        fclose(mImage);
-
     mImage = fopen(vfsPath.c_str(), "w+b");
+    if (mImage == 0)
+        LOG_ERROR("Failed to open VFS");
 }
 
 bool Vfs::Init(uint32 size)
@@ -263,7 +264,7 @@ VfsFile* Vfs::OpenFile(const std::string& path, bool create)
         {
             LOG_ERROR("Failed create directory");
             ReleaseINode(inodeID);
-            return false;
+            return nullptr;
         }
     }
     else
@@ -271,7 +272,7 @@ VfsFile* Vfs::OpenFile(const std::string& path, bool create)
         if (inodeID == INVALID_INDEX)
         {
             LOG_ERROR("Invalid path: " << path);
-            return false;
+            return nullptr;
         }
     }
     

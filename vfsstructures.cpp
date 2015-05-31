@@ -4,6 +4,8 @@
 
 #include "vfsstructures.hpp"
 
+#include <string.h>
+
 const uint32 INVALID_INDEX = static_cast<uint32>(-1);
 
 INode::INode()

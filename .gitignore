@@ -16,3 +16,13 @@
 *.opensdf
 *.suo
 *.vcxproj.user
+
+# binary files
+/vfsTest
+/vmkfs
+/vmkdir
+/vls
+/vrm
+/vcp
+/vmv
+

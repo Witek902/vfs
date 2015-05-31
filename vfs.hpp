@@ -6,6 +6,7 @@
 
 #include "vfsstructures.hpp"
 #include "vfsfile.hpp"
+
 #include <vector>
 #include <string>
 #include <set>
@@ -55,6 +56,8 @@ class Vfs final
     void GetINodeByPath(const std::string& path, uint32& inodeID, uint32& parentINodeID);
     void WriteINode(uint32 id, const INode& inode);
     void ReadINode(uint32 id, INode& inode);
+
+    Vfs() = delete;
 
 public:
     ~Vfs();

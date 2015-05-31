@@ -5,6 +5,7 @@
 #include "vfsfile.hpp"
 #include "vfs.hpp"
 #include "vfscommon.hpp"
+
 #include <assert.h>
 #include <algorithm>
 

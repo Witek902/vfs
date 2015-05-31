@@ -3,6 +3,7 @@
  */
 
 #include "vfs.hpp"
+
 #include <assert.h>
 #include <iostream>
 #include <string>

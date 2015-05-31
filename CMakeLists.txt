@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 2.6)
 project(vfs)
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wpedantic -O0 -g")
-add_executable(vfs test.cpp vfs.cpp)
+SET(VFS_SOURCES vfs.cpp vfsfile.cpp vfsstructures.cpp)
+SET(VFS_HEADERS vfs.hpp vfsfile.hpp vfsstructures.hpp vfscommon.hpp)
+
+SET(CMAKE_CXX_FLAGS       "${CMAKE_CXX_FLAGS} -O2 -std=c++0x")
+SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -std=c++0x")
+ADD_DEFINITIONS("-Wall -Wpedantic")
+
+add_executable(vfsTest test.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+
+add_executable(vmkfs vmkfs.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+add_executable(vmkdir vmkdir.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+add_executable(vcp vcp.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+add_executable(vmv vmv.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+add_executable(vrm vrm.cpp ${VFS_SOURCES} ${VFS_HEADERS})
+add_executable(vls vls.cpp ${VFS_SOURCES} ${VFS_HEADERS})
