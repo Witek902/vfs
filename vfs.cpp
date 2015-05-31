@@ -21,7 +21,7 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
     for (uint32 i = 0; i < bitmapSize * VFS_BLOCK_SIZE; ++i) 
     {
         uint8 byte = 0;
-        assert(1 == fread(&byte, 1, 1, mImage));
+        VFS_ASSERT(1 == fread(&byte, 1, 1, mImage));
 
         if (byte == 0xFF)
             continue;
@@ -34,7 +34,7 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
             {
                 byte |= mask;
                 fseek(mImage, -1, SEEK_CUR);
-                assert(1 == fwrite(&byte, 1, 1, mImage));
+                VFS_ASSERT(1 == fwrite(&byte, 1, 1, mImage));
                 return 8 * i + j;
             }
             mask <<= 1;
@@ -47,19 +47,19 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
 // NOTE: this is slow - O(n) worst case time complexity
 void Vfs::ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id)
 {
-    assert(id < 8 * VFS_BLOCK_SIZE * bitmapSize);
+    VFS_ASSERT(id < 8 * VFS_BLOCK_SIZE * bitmapSize);
     uint32 byteOffset = VFS_BLOCK_SIZE * firstBitmapBlock + id / 8;
     uint8 mask = 1 << (id % 8);
 
     uint8 byte;
     fseek(mImage, byteOffset, SEEK_SET);
-    assert(1 == fread(&byte, 1, 1, mImage));
-    assert((byte & mask) == mask);
+    VFS_ASSERT(1 == fread(&byte, 1, 1, mImage));
+    VFS_ASSERT((byte & mask) == mask);
 
     byte &= ~mask;
 
     fseek(mImage, byteOffset, SEEK_SET);
-    assert(1 == fwrite(&byte, 1, 1, mImage));
+    VFS_ASSERT(1 == fwrite(&byte, 1, 1, mImage));
 }
 
 uint32 Vfs::ReserveBlock()
@@ -152,15 +152,15 @@ void Vfs::GetINodeByPath(const std::string& path, uint32& inodeID, uint32& paren
 void Vfs::WriteINode(uint32 id, const INode& inode)
 {
     uint32 offset = 1 + mSuperblock.dataBitmapBlocks + mSuperblock.inodeBitmapBlocks;
-    assert(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
-    assert(fwrite(&inode, sizeof(INode), 1, mImage) == 1);
+    VFS_ASSERT(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
+    VFS_ASSERT(fwrite(&inode, sizeof(INode), 1, mImage) == 1);
 }
 
 void Vfs::ReadINode(uint32 id, INode& inode)
 {
     uint32 offset = 1 + mSuperblock.dataBitmapBlocks + mSuperblock.inodeBitmapBlocks;
-    assert(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
-    assert(fread(&inode, sizeof(INode), 1, mImage) == 1);
+    VFS_ASSERT(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
+    VFS_ASSERT(fread(&inode, sizeof(INode), 1, mImage) == 1);
 }
 
 //=================================================================================================
@@ -212,14 +212,14 @@ bool Vfs::Init(uint32 size)
     fseek(mImage, 0, SEEK_SET);
     for (uint32 i = 0; i < mSuperblock.blocks; ++i)
     {
-        assert(1 == fwrite(clearBlock, VFS_BLOCK_SIZE, 1, mImage));
+        VFS_ASSERT(1 == fwrite(clearBlock, VFS_BLOCK_SIZE, 1, mImage));
     }
 
     // write superblock
     fseek(mImage, 0, SEEK_SET);
     fwrite(&mSuperblock, sizeof(Superblock), 1, mImage);
 
-    assert(ReserveINode() == 0);
+    VFS_ASSERT(ReserveINode() == 0);
     INode rootInode;
     rootInode.type = INodeType::Directory;
     WriteINode(ROOT_INODE_INDEX, rootInode);
@@ -394,7 +394,7 @@ bool Vfs::Rename(const std::string& src, const std::string& dest)
     // update old parent directory table
     {
         VfsFile oldParentDirFile(this, oldParentInodeID);
-        assert(oldParentDirFile.RemoveDirectoryEntry(oldInodeID));
+        VFS_ASSERT(oldParentDirFile.RemoveDirectoryEntry(oldInodeID));
     }
 
     return true;
@@ -415,7 +415,7 @@ bool Vfs::Remove(const std::string& path)
         return false;
 
     VfsFile parentDirFile(this, parentInodeID);
-    assert(parentDirFile.RemoveDirectoryEntry(inodeID));
+    VFS_ASSERT(parentDirFile.RemoveDirectoryEntry(inodeID));
 
     ReleaseINode(inodeID);
     return true;

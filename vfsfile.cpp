@@ -25,8 +25,8 @@ VfsFile::~VfsFile()
 
 bool VfsFile::ExtendPointers(uint8 newDepth)
 {
-    assert(newDepth == (mINode.ptrDepth + 1));
-    assert(newDepth < 3);
+    VFS_ASSERT(newDepth == (mINode.ptrDepth + 1));
+    VFS_ASSERT(newDepth < 3);
 
     if (newDepth == 1)
     {
@@ -95,8 +95,8 @@ int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
 
         toRead = std::min(toRead, bytes - read);
 
-        assert(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
-        assert(fread(dataPtr, toRead, 1, mVFS->mImage) == 1);
+        VFS_ASSERT(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
+        VFS_ASSERT(fread(dataPtr, toRead, 1, mVFS->mImage) == 1);
         dataPtr += toRead;
         read += toRead;
     }
@@ -138,8 +138,8 @@ int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
 
         toWrite = std::min(toWrite, bytes - written);
 
-        assert(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
-        assert(fwrite(dataPtr, toWrite, 1, mVFS->mImage) == 1);
+        VFS_ASSERT(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
+        VFS_ASSERT(fwrite(dataPtr, toWrite, 1, mVFS->mImage) == 1);
         dataPtr += toWrite;
         written += toWrite;
 
@@ -173,7 +173,7 @@ bool VfsFile::Remove()
 
 bool VfsFile::RemoveDirectoryEntry(uint32 inodeID)
 {
-    assert(mINode.type == INodeType::Directory);
+    VFS_ASSERT(mINode.type == INodeType::Directory);
 
     bool found = false;
     for (uint32 i = 0; i < mINode.usage; ++i)
@@ -202,7 +202,7 @@ bool VfsFile::RemoveDirectoryEntry(uint32 inodeID)
 
 bool VfsFile::AddDirectoryEntry(const Directory& dir)
 {
-    assert(mINode.type == INodeType::Directory);
+    VFS_ASSERT(mINode.type == INodeType::Directory);
 
     if (WriteOffset(sizeof(Directory), mINode.usage * sizeof(Directory), &dir)
         != sizeof(Directory))

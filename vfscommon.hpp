@@ -15,11 +15,14 @@ typedef unsigned char uint8;
 
 #define LOG_ERROR(x) std::cout << __FILE__ << ':' << __LINE__ << ": ERROR: " << x << std::endl
 
-//#ifdef _DEBUG
+#ifdef _DEBUG
+    #define VFS_ASSERT(x) if (!(x)) { LOG_ERROR("Assertion failed"); }
     #define LOG_DEBUG(x) std::cout << __FILE__ << ':' << __LINE__ << ": " << x << std::endl
-//#else
-//    #define LOG_DEBUG(x)
-//#endif
+#else
+    #define VFS_ASSERT(x) x
+    #define LOG_DEBUG(x)
+#endif
+
 
 // calculate ceil(a/b)
 template<typename T>

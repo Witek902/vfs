@@ -11,43 +11,43 @@
 void DirTest()
 {
     Vfs vfs("test.bin");
-    assert(vfs.Init(16 * 1024 * 1024));
+    VFS_ASSERT(vfs.Init(16 * 1024 * 1024));
 
-    assert(true == vfs.CreateDir("0a"));
-    assert(true == vfs.CreateDir("0a/1a"));
-    assert(true == vfs.CreateDir("0a/1a/2a"));
-    assert(true == vfs.CreateDir("0a/1b"));
-    assert(true == vfs.CreateDir("0a/1c"));
+    VFS_ASSERT(true == vfs.CreateDir("0a"));
+    VFS_ASSERT(true == vfs.CreateDir("0a/1a"));
+    VFS_ASSERT(true == vfs.CreateDir("0a/1a/2a"));
+    VFS_ASSERT(true == vfs.CreateDir("0a/1b"));
+    VFS_ASSERT(true == vfs.CreateDir("0a/1c"));
 
-    assert(true == vfs.CreateDir("0b"));
-    assert(true == vfs.CreateDir("0b/1b"));
+    VFS_ASSERT(true == vfs.CreateDir("0b"));
+    VFS_ASSERT(true == vfs.CreateDir("0b/1b"));
 
-    assert(false == vfs.CreateDir("0a"));
-    assert(false == vfs.CreateDir("0a/1a"));
-    assert(false == vfs.CreateDir("0a/blah/2a"));
+    VFS_ASSERT(false == vfs.CreateDir("0a"));
+    VFS_ASSERT(false == vfs.CreateDir("0a/1a"));
+    VFS_ASSERT(false == vfs.CreateDir("0a/blah/2a"));
 
     std::vector<std::string> list;
-    assert(false == vfs.List("blah", list));
-    assert(true == vfs.List("0a", list));
+    VFS_ASSERT(false == vfs.List("blah", list));
+    VFS_ASSERT(true == vfs.List("0a", list));
     std::cout << "==================\n";
     for (const auto& str : list)
         std::cout << str << std::endl;
 
 
-    assert(false == vfs.Remove("blah"));
-    assert(false == vfs.Remove("0a/blah"));
-    assert(false == vfs.Remove("0b"));
-    assert(true == vfs.Remove("0b/1b"));
-    assert(true == vfs.Remove("0b"));
+    VFS_ASSERT(false == vfs.Remove("blah"));
+    VFS_ASSERT(false == vfs.Remove("0a/blah"));
+    VFS_ASSERT(false == vfs.Remove("0b"));
+    VFS_ASSERT(true == vfs.Remove("0b/1b"));
+    VFS_ASSERT(true == vfs.Remove("0b"));
 
     std::cout << "==================\n";
     vfs.DebugPrint();
 
-    assert(false == vfs.Rename("blah", "blah"));
-    assert(false == vfs.Rename("0a", "0a"));
-    assert(true == vfs.Rename("0a/1b", "0moved"));
-    assert(false == vfs.Rename("0moved", "0moved"));
-    assert(true == vfs.Rename("0moved", "0moved2"));
+    VFS_ASSERT(false == vfs.Rename("blah", "blah"));
+    VFS_ASSERT(false == vfs.Rename("0a", "0a"));
+    VFS_ASSERT(true == vfs.Rename("0a/1b", "0moved"));
+    VFS_ASSERT(false == vfs.Rename("0moved", "0moved"));
+    VFS_ASSERT(true == vfs.Rename("0moved", "0moved2"));
 
     std::cout << "==================\n";
     vfs.DebugPrint();
@@ -56,9 +56,9 @@ void DirTest()
 void FileTest()
 {
     Vfs vfs("test.bin");
-    assert(vfs.Init(16 * 1024 * 1024));
+    VFS_ASSERT(vfs.Init(16 * 1024 * 1024));
 
-    assert(true == vfs.CreateDir("aaa"));
+    VFS_ASSERT(true == vfs.CreateDir("aaa"));
 
     VfsFile* file;
     int data;
@@ -66,33 +66,33 @@ void FileTest()
 
     // open non-existing file
     file = vfs.OpenFile("aaa/file", false);
-    assert(nullptr == file);
+    VFS_ASSERT(nullptr == file);
 
     file = vfs.OpenFile("aaa/file", true);
-    assert(nullptr != file);
-    assert(file->Read(sizeof(data), &data) == 0); // read empty file
-    assert(file->Write(sizeof(refData), &refData) == sizeof(data)); // write something
-    assert(file->Seek(0, VfsSeekMode::Begin) == 0); // seek to the beginning
-    assert(file->Read(sizeof(data), &data) == sizeof(data)); // read written data
-    assert(refData == data); // verify
-    assert(file->Read(sizeof(data), &data) == 0); // read after file end
-    assert(vfs.Close(file) == true); // close file
-    assert(vfs.Close(file) == false); // try to close again
+    VFS_ASSERT(nullptr != file);
+    VFS_ASSERT(file->Read(sizeof(data), &data) == 0); // read empty file
+    VFS_ASSERT(file->Write(sizeof(refData), &refData) == sizeof(data)); // write something
+    VFS_ASSERT(file->Seek(0, VfsSeekMode::Begin) == 0); // seek to the beginning
+    VFS_ASSERT(file->Read(sizeof(data), &data) == sizeof(data)); // read written data
+    VFS_ASSERT(refData == data); // verify
+    VFS_ASSERT(file->Read(sizeof(data), &data) == 0); // read after file end
+    VFS_ASSERT(vfs.Close(file) == true); // close file
+    VFS_ASSERT(vfs.Close(file) == false); // try to close again
 
     std::cout << "==================\n";
     vfs.DebugPrint();
 
     // move the file to a new directory
-    assert(true == vfs.CreateDir("bbb"));
-    assert(true == vfs.Rename("aaa/file", "bbb/file"));
+    VFS_ASSERT(true == vfs.CreateDir("bbb"));
+    VFS_ASSERT(true == vfs.Rename("aaa/file", "bbb/file"));
 
     file = vfs.OpenFile("bbb/file", true); // try to create existing file
-    assert(nullptr == file);
+    VFS_ASSERT(nullptr == file);
     file = vfs.OpenFile("bbb/file", false);
-    assert(nullptr != file);
-    assert(file->Read(sizeof(data), &data) == sizeof(data));
-    assert(refData == data);
-    assert(vfs.Close(file) == true);
+    VFS_ASSERT(nullptr != file);
+    VFS_ASSERT(file->Read(sizeof(data), &data) == sizeof(data));
+    VFS_ASSERT(refData == data);
+    VFS_ASSERT(vfs.Close(file) == true);
 
     std::cout << "==================\n";
     vfs.DebugPrint();
@@ -106,7 +106,7 @@ void BigFileTest()
 
     VfsFile* file;
     Vfs vfs("test.bin");
-    assert(vfs.Init(fsSize));
+    VFS_ASSERT(vfs.Init(fsSize));
 
     file = vfs.OpenFile("file", true);
     uint32 written = 0;
@@ -116,12 +116,12 @@ void BigFileTest()
         uint32 ret = file->Write(sizeof(data), &data);
         written += ret;
     }
-    assert(file->Seek(0, VfsSeekMode::Curr) == written);
+    VFS_ASSERT(file->Seek(0, VfsSeekMode::Curr) == written);
     vfs.Close(file);
 
     std::cout << "Bytes written: " << written << std::endl;
-    assert(written < fsSize);
-    // assert(written > fsSize / 2);
+    VFS_ASSERT(written < fsSize);
+    // VFS_ASSERT(written > fsSize / 2);
 
 
     file = vfs.OpenFile("file", false);
@@ -132,13 +132,13 @@ void BigFileTest()
         uint32 ret = file->Read(sizeof(int), &data);
         if (ret < sizeof(int)) // EOF
             break;
-        assert(data == i + salt);
+        VFS_ASSERT(data == i + salt);
         read += ret;
     }
-    assert(file->Seek(0, VfsSeekMode::Curr) == read);
+    VFS_ASSERT(file->Seek(0, VfsSeekMode::Curr) == read);
     vfs.Close(file);
 
-    assert(read == written);
+    VFS_ASSERT(read == written);
 }
 
 int main(int argc, char** argv)
