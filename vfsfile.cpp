@@ -8,12 +8,18 @@
 #include <assert.h>
 #include <algorithm>
 
-VfsFile::VfsFile(Vfs* vfs, uint32 inodeID, const INode& inode)
+VfsFile::VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly)
 {
     mVFS = vfs;
     mCursor = 0;
     mINodeID = inodeID;
-    mINode = inode;
+    mVFS->ReadINode(mINodeID, mINode);
+    // TODO: read only support
+}
+
+VfsFile::~VfsFile()
+{
+    mVFS->WriteINode(mINodeID, mINode);
 }
 
 bool VfsFile::ExtendPointers(uint8 newDepth)
@@ -40,12 +46,42 @@ int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
     if (bytes == 0)
         return 0;
 
+    // TODO: take file size into account
+
+    uint32 read = 0;
     uint32 firstBlockId = offset / VFS_BLOCK_SIZE;
     uint32 lastBlockId = (offset + bytes - 1) / VFS_BLOCK_SIZE;
+    char* dataPtr = (char*)data;
 
     // TODO: real block ID resolving for depth 1 and 2
+    assert(lastBlockId < INODE_PTRS);
 
-    return bytes;
+    for (uint32 i = firstBlockId; i <= lastBlockId; ++i)
+    {
+        if (mINode.blockPtr[i] == INVALID_INDEX)
+            break;
+
+        // calculate VFS read offset (in bytes)
+        uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[i]);
+
+        // calculate number of bytes to read
+        uint32 toRead = VFS_BLOCK_SIZE;
+        if (i == firstBlockId)
+        {
+            uint32 interBlockOffset = offset - VFS_BLOCK_SIZE * (offset / VFS_BLOCK_SIZE);
+            vfsOffset += interBlockOffset;
+            toRead = VFS_BLOCK_SIZE - interBlockOffset;
+        }
+
+        toRead = std::min(toRead, bytes - read);
+
+        assert(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
+        assert(fread(dataPtr, toRead, 1, mVFS->mImage) == 1);
+        dataPtr += toRead;
+        read += toRead;
+    }
+
+    return read;
 }
 
 int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
@@ -76,17 +112,15 @@ int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
         uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[i]);
 
         // calculate number of bytes to write
-        uint32 toWrite = 0;
+        uint32 toWrite = VFS_BLOCK_SIZE;
         if (i == firstBlockId)
         {
             uint32 interBlockOffset = offset - VFS_BLOCK_SIZE * (offset / VFS_BLOCK_SIZE);
             vfsOffset += interBlockOffset;
             toWrite = VFS_BLOCK_SIZE - interBlockOffset;
         }
-        else if (i == lastBlockId)
-            toWrite = bytes - written;
-        else
-            toWrite = VFS_BLOCK_SIZE;
+
+        toWrite = std::min(toWrite, bytes - written);
 
         assert(fseek(mVFS->mImage, vfsOffset, SEEK_SET) == 0);
         assert(fwrite(dataPtr, toWrite, 1, mVFS->mImage) == 1);
@@ -98,6 +132,54 @@ int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
     }
 
     return written;
+}
+
+bool VfsFile::Remove()
+{
+    if (mINode.type == INodeType::Directory && mINode.usage != 0)
+    {
+        LOG_DEBUG("Directory is not empty");
+        return false;
+    }
+
+    // TODO: support for pointers depth > 0
+    for (uint32 i = 0; i < INODE_PTRS; ++i)
+    {
+        if (mINode.blockPtr[i] != INVALID_INDEX)
+        {
+            mVFS->ReleaseBlock(mINode.blockPtr[i]);
+            mINode.blockPtr[i] = INVALID_INDEX;
+        }
+    }
+
+    return true;
+}
+
+bool VfsFile::RemoveDirectoryEntry(uint32 inodeID)
+{
+    bool found = false;
+    for (uint32 i = 0; i < mINode.usage; ++i)
+    {
+        Directory dirEntry;
+        Read(sizeof(Directory), &dirEntry);
+
+        // swap with last element - fast O(1) removal
+        if (dirEntry.inodeID == inodeID)
+        {
+            if ((mINode.usage > 1) && (i < mINode.usage - 1))
+            {
+                ReadOffset(sizeof(Directory), (mINode.usage - 1) * sizeof(Directory), &dirEntry);
+                WriteOffset(sizeof(Directory), i * sizeof(Directory), &dirEntry);
+            }
+            found = true;
+            break;
+        }
+    }
+
+    if (found)
+        mINode.usage--;
+
+    return found;
 }
 
 int32 VfsFile::Read(uint32 bytes, void* data)

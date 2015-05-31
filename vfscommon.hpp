@@ -13,10 +13,10 @@ typedef unsigned short uint16;
 typedef char int8;
 typedef unsigned char uint8;
 
-#define LOG_ERROR(x) std::cout << "ERROR: " << x << std::endl
+#define LOG_ERROR(x) std::cout << __FILE__ << ':' << __LINE__ << ": ERROR: " << x << std::endl
 
 #ifdef _DEBUG
-    #define LOG_DEBUG(x) std::cout << x << std::endl
+    #define LOG_DEBUG(x) std::cout << __FILE__ << ':' << __LINE__ << ": " << x << std::endl
 #else
     #define LOG_DEBUG(x)
 #endif

@@ -6,10 +6,11 @@
 #include <assert.h>
 #include <iostream>
 #include <sstream>
+#include <stack>
 
 #define ROOT_INODE_INDEX 0
 
-
+// NOTE: this is slow - O(n) worst case time complexity
 uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
 {
     fseek(mImage, VFS_BLOCK_SIZE * firstBitmapBlock, SEEK_SET);
@@ -41,9 +42,10 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
     return INVALID_INDEX;
 }
 
+// NOTE: this is slow - O(n) worst case time complexity
 void Vfs::ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id)
 {
-    assert(id < bitmapSize);
+    assert(id < 8 * VFS_BLOCK_SIZE * bitmapSize);
     uint32 byteOffset = VFS_BLOCK_SIZE * firstBitmapBlock + id / 8;
     uint8 mask = 1 << (id % 8);
 
@@ -78,10 +80,9 @@ void Vfs::ReleaseINode(uint32 id)
     ReleaseBitmap(1, mSuperblock.inodeBitmapBlocks, id);
 }
 
-uint32 Vfs::GetINodeByPath(const std::string& path, bool getParent)
+std::string Vfs::NameFromPath(const std::string& path)
 {
     std::vector<std::string> dirs;
-
     std::string dir;
     std::istringstream pathStream(path);
     while (std::getline(pathStream, dir, '/'))
@@ -90,30 +91,75 @@ uint32 Vfs::GetINodeByPath(const std::string& path, bool getParent)
             dirs.push_back(dir);
     }
 
-    uint32 currInode = 0;
-    for (const auto& dir : dirs)
+    if (dirs.size() == 0)
+        return std::string();
+
+    return dirs[dirs.size() - 1];
+}
+
+void Vfs::GetINodeByPath(const std::string& path, uint32& inodeID, uint32& parentINodeID)
+{
+    /// split path
+    std::vector<std::string> dirs;
+    std::string dir;
+    std::istringstream pathStream(path);
+    while (std::getline(pathStream, dir, '/'))
     {
-        // TODO: find object "dir" in directory "currInode"
+        if (dir.length() > 0)
+            dirs.push_back(dir);
     }
 
-    return 0;
-    // return INVALID_INDEX;
+    inodeID = INVALID_INDEX;
+    parentINodeID = INVALID_INDEX;
+
+    if (dirs.size() == 1)
+        parentINodeID = ROOT_INODE_INDEX;
+    if (dirs.size() == 0)
+        inodeID = ROOT_INODE_INDEX;
+
+    uint32 currINodeID = 0;
+    for (size_t j = 0; j < dirs.size(); ++j)
+    {
+        const auto& dir = dirs[j];
+        bool found = false;
+
+        Directory dirEntry;
+        VfsFile dirFile(this, currINodeID);
+        // NOTE: this is slow - O(n) worst case time complexity
+        for (uint32 i = 0; i < dirFile.mINode.usage; ++i)
+        {
+            dirFile.Read(sizeof(Directory), &dirEntry);
+            if (dir == dirEntry.name)
+            {
+                currINodeID = dirEntry.inodeID;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+            return;
+
+        if (j == dirs.size() - 1) // target path found
+            inodeID = currINodeID;
+        else if (j == dirs.size() - 2) // parent directory found
+            parentINodeID = currINodeID;
+    }
 }
 
 void Vfs::WriteINode(uint32 id, const INode& inode)
 {
     uint32 offset = 1 + mSuperblock.dataBitmapBlocks + mSuperblock.inodeBitmapBlocks;
-    fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET);
+    assert(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
     assert(fwrite(&inode, sizeof(INode), 1, mImage) == 1);
 }
 
 void Vfs::ReadINode(uint32 id, INode& inode)
 {
     uint32 offset = 1 + mSuperblock.dataBitmapBlocks + mSuperblock.inodeBitmapBlocks;
-    fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET);
+    assert(fseek(mImage, VFS_BLOCK_SIZE * offset + id * sizeof(INode), SEEK_SET) == 0);
     assert(fread(&inode, sizeof(INode), 1, mImage) == 1);
 }
-
 
 
 Vfs::~Vfs()
@@ -146,7 +192,10 @@ bool Vfs::Init(uint32 size)
                                                  VFS_BLOCK_SIZE / VFS_INODE_SIZE);
     mSuperblock.dataBitmapBlocks = CeilDivide<uint32>(mSuperblock.blocks, VFS_BLOCK_SIZE * 8);
     mSuperblock.inodeBitmapBlocks = mSuperblock.dataBitmapBlocks;
-    mSuperblock.firstDataBlock = 1 + mSuperblock.dataBitmapBlocks + mSuperblock.inodeBitmapBlocks;
+    mSuperblock.firstDataBlock = 1 +
+                                 mSuperblock.dataBitmapBlocks +
+                                 mSuperblock.inodeBitmapBlocks +
+                                 mSuperblock.inodeBlocks;
 
     // clear VFS file
     static uint8 clearBlock[VFS_BLOCK_SIZE] = { 0x0 };
@@ -172,7 +221,7 @@ VfsFile* Vfs::OpenFile(const std::string& path, bool create)
 {
     if (create)
     {
-        uint32 inodeId = GetINodeByPath(path, true);
+        // uint32 inodeId = GetINodeByPath(path, true);
     }
     else
     {
@@ -199,68 +248,199 @@ bool Vfs::Close(VfsFile* file)
 
 bool Vfs::CreateDir(const std::string& path)
 {
-    uint32 parentInodeID = GetINodeByPath(path, true);
+    uint32 inodeID, parentInodeID;
+    GetINodeByPath(path, inodeID, parentInodeID);
+
     if (parentInodeID == INVALID_INDEX)
     {
         LOG_ERROR("Invalid path: " << path);
         return false;
     }
 
-    uint32 inodeID = ReserveINode();
+    if (inodeID != INVALID_INDEX)
+    {
+        LOG_ERROR("Directory '" << path << "' already exists");
+        return false;
+    }
+
+    inodeID = ReserveINode();
     if (inodeID == INVALID_INDEX)
     {
         LOG_ERROR("Failed to reserve inode for directory");
         return false;
     }
 
+    std::string dirName = NameFromPath(path);
+    Directory dirEntry;
+    dirEntry.inodeID = inodeID;
+    strcpy(dirEntry.name, dirName.c_str());
+
     INode inode;
     inode.type = INodeType::Directory;
     WriteINode(inodeID, inode);
 
-    INode parentInode;
-    ReadINode(parentInodeID, parentInode);
-    VfsFile parentDirFile(this, parentInodeID, parentInode);
+    // update parent directory table
+    VfsFile parentDirFile(this, parentInodeID);
+    if (parentDirFile.WriteOffset(sizeof(Directory), parentDirFile.mINode.usage * sizeof(Directory),
+        &dirEntry) != sizeof(Directory))
+    {
+        LOG_ERROR("Failed create directory");
+        ReleaseINode(inodeID);
+        return false;
+    }
+    parentDirFile.mINode.usage++;
 
-    // TODO: update parent dir
-    uint8 testData[5000];
-    memset(testData, 'u', 5000);
-    parentDirFile.WriteOffset(5000, 4090, testData);
-
-    WriteINode(parentInodeID, parentInode);
     return true;
 }
 
 bool Vfs::Rename(const std::string& src, const std::string& dest)
 {
-    uint32 oldParentInode = GetINodeByPath(src, true);
-    if (oldParentInode == INVALID_INDEX)
+    /// get old path info
+    uint32 oldParentInodeID, oldInodeID;
+    GetINodeByPath(src, oldInodeID, oldParentInodeID);
+    if (oldInodeID == INVALID_INDEX)
     {
         LOG_ERROR("Invalid path: " << src);
         return false;
     }
 
-    uint32 newParentInode = GetINodeByPath(dest, true);
-    if (newParentInode == INVALID_INDEX)
+    // get new path info
+    uint32 newParentInodeID, newInodeID;
+    GetINodeByPath(dest, newInodeID, newParentInodeID);
+    if (newParentInodeID == INVALID_INDEX)
     {
         LOG_ERROR("Invalid path: " << dest);
         return false;
     }
 
-    // TODO
+    if (newInodeID != INVALID_INDEX)
+    {
+        LOG_ERROR("Path '" << dest << "' already exists");
+        return false;
+    }
+
+    // create new directory table entry
+    std::string dirName = NameFromPath(dest);
+    Directory dirEntry;
+    dirEntry.inodeID = oldInodeID;
+    strcpy(dirEntry.name, dirName.c_str());
+
+    // update new parent directory table
+    {
+        VfsFile newParentDirFile(this, newParentInodeID);
+        if (newParentDirFile.WriteOffset(sizeof(Directory),
+            newParentDirFile.mINode.usage * sizeof(Directory), &dirEntry) != sizeof(Directory))
+        {
+            LOG_ERROR("Failed move object");
+            return false;
+        }
+        newParentDirFile.mINode.usage++;
+    }
+
+    // update old parent directory table
+    {
+        VfsFile oldParentDirFile(this, oldParentInodeID);
+        assert(oldParentDirFile.RemoveDirectoryEntry(oldInodeID));
+    }
 
     return true;
 }
 
 bool Vfs::Remove(const std::string& path)
 {
-    // TODO
+    uint32 inodeID, parentInodeID;
+    GetINodeByPath(path, inodeID, parentInodeID);
+    if (inodeID == INVALID_INDEX)
+    {
+        LOG_ERROR("Invalid path: " << path);
+        return false;
+    }
+
+    VfsFile dirFile(this, inodeID);
+    if (!dirFile.Remove())
+        return false;
+
+    VfsFile parentDirFile(this, parentInodeID);
+    assert(parentDirFile.RemoveDirectoryEntry(inodeID));
+
+    ReleaseINode(inodeID);
+    return true;
+}
+
+bool Vfs::List(const std::string& path, std::vector<std::string>& nodes)
+{
+    uint32 inodeID, parentInodeID;
+    GetINodeByPath(path, inodeID, parentInodeID);
+    if (inodeID == INVALID_INDEX)
+    {
+        LOG_ERROR("Invalid path: " << path);
+        return false;
+    }
+
+    VfsFile dirFile(this, inodeID);
+    if (dirFile.mINode.type != INodeType::Directory)
+    {
+        LOG_ERROR("The path '" << path << "' is not a directory");
+        return false;
+    }
+
+    nodes.clear();
+    for (uint32 i = 0; i < dirFile.mINode.usage; ++i)
+    {
+        Directory dirEntry;
+        dirFile.Read(sizeof(Directory), &dirEntry);
+        nodes.push_back(dirEntry.name);
+    }
 
     return true;
 }
 
-bool Vfs::List(std::vector<std::string>& nodes)
+void Vfs::DebugPrint()
 {
-    // TODO
+    struct Node
+    {
+        int depth;
+        uint32 inodeID;
+        std::string fullPath;
+        std::string name;
+    };
 
-    return true;
+    const std::string INDENT = "  ";
+    std::stack<Node> dirStack;
+
+    Node root;
+    root.depth = 0;
+    root.inodeID = ROOT_INODE_INDEX;
+    root.fullPath = "";
+    root.name = "<root>";
+    dirStack.push(root);
+
+    while (!dirStack.empty())
+    {
+        Node dir = dirStack.top();
+        dirStack.pop();
+
+        VfsFile file(this, dir.inodeID);
+        for (uint32 i = 0; i < file.mINode.usage; ++i)
+        {
+            Directory dirEntry;
+            file.Read(sizeof(Directory), &dirEntry);
+            
+            Node child;
+            child.depth = dir.depth + 1;
+            child.fullPath = dir.fullPath + '/' + dirEntry.name;
+            child.inodeID = dirEntry.inodeID;
+            child.name = dirEntry.name;
+            dirStack.push(child);
+        }
+
+        for (int i = 0; i < dir.depth; ++i)
+            std::cout << INDENT;
+        std::string type = " ";
+        if (file.mINode.type == INodeType::Directory)
+            type = " [DIR] ";
+
+        std::cout << "* " << dir.inodeID << type << dir.name <<
+            " (" << file.mINode.size << " bytes)\n";
+    }
 }

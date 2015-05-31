@@ -48,7 +48,8 @@ class Vfs final
     uint32 ReserveINode();
     void ReleaseINode(uint32 id);
 
-    uint32 GetINodeByPath(const std::string& path, bool getParent = false);
+    static std::string NameFromPath(const std::string& path);
+    void GetINodeByPath(const std::string& path, uint32& inodeID, uint32& parentINodeID);
     void WriteINode(uint32 id, const INode& inode);
     void ReadINode(uint32 id, INode& inode);
 
@@ -102,8 +103,10 @@ public:
     /**
      * @brief List all files and directories in a directory
      */
-    bool List(std::vector<std::string>& nodes);
+    bool List(const std::string& path, std::vector<std::string>& nodes);
 
     // TODO:
     // * file system map (used/unused block, fragmentation, etc.)
+
+    void DebugPrint();
 };

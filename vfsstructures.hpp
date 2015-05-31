@@ -27,7 +27,7 @@ enum class INodeType : uint8
     Directory
 };
 
-#define INODE_PTRS 6
+#define INODE_PTRS 5
 
 /**
  * Index Node structure
@@ -43,10 +43,22 @@ struct INode
      * 2 - "blockPtr" are pointers to blocks containing pointers to blocks containing pointers to data blocks
      */
     uint8 ptrDepth;
-    uint32 size;
+    uint32 size; //< file size in bytes
+    uint32 usage; //< number of entries in the directory (only for dirs)
     uint32 blockPtr[INODE_PTRS];
 
     INode();
+};
+
+/**
+ * Directory structure
+ */
+struct Directory
+{
+    uint32 inodeID;
+    char name[252];
+
+    Directory();
 };
 
 /**

@@ -14,7 +14,8 @@ class VfsFile final
     uint32 mINodeID;
     INode mINode;
 
-    VfsFile(Vfs* vfs, uint32 inodeID, const INode& inode);
+    VfsFile(const VfsFile& file) = delete;
+    VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly = true);
 
     // reorganize block pointers if there is no left space
     bool ExtendPointers(uint8 newDepth);
@@ -25,7 +26,14 @@ class VfsFile final
     // write data without affecting cursor
     int32 WriteOffset(uint32 bytes, uint32 offset, const void* data);
 
+    // remove all file blocks (or directory table if empty)
+    bool Remove();
+
+    bool RemoveDirectoryEntry(uint32 inodeID);
+
 public:
+    ~VfsFile();
+
     /**
      * @brief Read data from the file
      * @param bytes Number of bytes to read
