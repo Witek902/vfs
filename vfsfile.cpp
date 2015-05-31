@@ -42,6 +42,23 @@ bool VfsFile::ExtendPointers(uint8 newDepth)
     return true;
 }
 
+uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
+{
+    if (id >= INODE_PTRS)
+        return INVALID_INDEX;
+
+    if (mINode.blockPtr[id] == INVALID_INDEX && allocate)
+    {
+        if ((mINode.blockPtr[id] = mVFS->ReserveBlock()) == INVALID_INDEX)
+        {
+            LOG_DEBUG("No blocks left");
+            return INVALID_INDEX;
+        }
+    }
+
+    return mINode.blockPtr[id];
+}
+
 int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
 {
     if (offset >= mINode.size)
@@ -58,16 +75,14 @@ int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
     uint32 lastBlockId = (offset + bytes - 1) / VFS_BLOCK_SIZE;
     char* dataPtr = (char*)data;
 
-    // TODO: real block ID resolving for depth 1 and 2
-    assert(lastBlockId < INODE_PTRS);
-
     for (uint32 i = firstBlockId; i <= lastBlockId; ++i)
     {
-        if (mINode.blockPtr[i] == INVALID_INDEX)
+        uint32 blockID = GetRealBlockID(i, false);
+        if (blockID == INVALID_INDEX)
             break;
 
         // calculate VFS read offset (in bytes)
-        uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[i]);
+        uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + blockID);
 
         // calculate number of bytes to read
         uint32 toRead = VFS_BLOCK_SIZE;
@@ -100,21 +115,17 @@ int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
     const char* dataPtr = (const char*)data;
 
     // TODO: real block ID resolving for depth 1 and 2
-    assert(lastBlockId < INODE_PTRS); 
+    if (lastBlockId >= INODE_PTRS)
+        lastBlockId = INODE_PTRS - 1;
 
     for (uint32 i = firstBlockId; i <= lastBlockId; ++i)
     {
-        if (mINode.blockPtr[i] == INVALID_INDEX)
-        {
-            if ((mINode.blockPtr[i] = mVFS->ReserveBlock()) == INVALID_INDEX)
-            {
-                LOG_DEBUG("No blocks left");
-                return written;
-            }
-        }
+        uint32 blockID = GetRealBlockID(i, true);
+        if (blockID == INVALID_INDEX)
+            break;
 
         // calculate VFS write offset (in bytes)
-        uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[i]);
+        uint32 vfsOffset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + blockID);
 
         // calculate number of bytes to write
         uint32 toWrite = VFS_BLOCK_SIZE;

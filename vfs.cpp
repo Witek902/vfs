@@ -20,7 +20,7 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
     // iterate bitmap bytes
     for (uint32 i = 0; i < bitmapSize * VFS_BLOCK_SIZE; ++i) 
     {
-        uint8 byte;
+        uint8 byte = 0;
         assert(1 == fread(&byte, 1, 1, mImage));
 
         if (byte == 0xFF)
@@ -190,7 +190,7 @@ bool Vfs::Init(uint32 size)
 {
     if (mImage == 0)
     {
-        printf("VFS is not open\n");
+        LOG_ERROR("VFS is not open");
         return false;
     }
 

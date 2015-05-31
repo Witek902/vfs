@@ -11,7 +11,7 @@
 void DirTest()
 {
     Vfs vfs("test.bin");
-    vfs.Init(16 * 1024 * 1024);
+    assert(vfs.Init(16 * 1024 * 1024));
 
     assert(true == vfs.CreateDir("0a"));
     assert(true == vfs.CreateDir("0a/1a"));
@@ -56,7 +56,7 @@ void DirTest()
 void FileTest()
 {
     Vfs vfs("test.bin");
-    vfs.Init(16 * 1024 * 1024);
+    assert(vfs.Init(16 * 1024 * 1024));
 
     assert(true == vfs.CreateDir("aaa"));
 
@@ -98,10 +98,54 @@ void FileTest()
     vfs.DebugPrint();
 }
 
+
+void BigFileTest()
+{
+    const uint32 fsSize = 16 * 1024 * 1024;
+    const int salt = 0x2356abef;
+
+    VfsFile* file;
+    Vfs vfs("test.bin");
+    assert(vfs.Init(fsSize));
+
+    file = vfs.OpenFile("file", true);
+    uint32 written = 0;
+    for (uint32 i = 0; i < fsSize / sizeof(int); ++i)
+    {
+        uint32 data = i + salt;
+        uint32 ret = file->Write(sizeof(data), &data);
+        written += ret;
+    }
+    assert(file->Seek(0, VfsSeekMode::Curr) == written);
+    vfs.Close(file);
+
+    std::cout << "Bytes written: " << written << std::endl;
+    assert(written < fsSize);
+    // assert(written > fsSize / 2);
+
+
+    file = vfs.OpenFile("file", false);
+    uint32 read = 0;
+    for (uint32 i = 0; i < fsSize / sizeof(int); ++i)
+    {
+        int data;
+        uint32 ret = file->Read(sizeof(int), &data);
+        if (ret < sizeof(int)) // EOF
+            break;
+        assert(data == i + salt);
+        read += ret;
+    }
+    assert(file->Seek(0, VfsSeekMode::Curr) == read);
+    vfs.Close(file);
+
+    assert(read == written);
+}
+
 int main(int argc, char** argv)
 {
     DirTest();
     FileTest();
+    BigFileTest();
 
     getchar();
     return 0;

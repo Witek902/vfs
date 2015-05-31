@@ -17,6 +17,9 @@ class VfsFile final
     VfsFile(const VfsFile& file) = delete;
     VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly = true);
 
+    // translate block index into real index in the VFS
+    uint32 GetRealBlockID(uint32 id, bool allocate);
+
     // reorganize block pointers if there is no left space
     bool ExtendPointers(uint8 newDepth);
 
