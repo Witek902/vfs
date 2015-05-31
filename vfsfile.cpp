@@ -43,10 +43,14 @@ bool VfsFile::ExtendPointers(uint8 newDepth)
 
 int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
 {
-    if (bytes == 0)
+    if (offset >= mINode.size)
         return 0;
 
-    // TODO: take file size into account
+    if (offset + bytes > mINode.size)
+        bytes = mINode.size - offset;
+
+    if (bytes == 0)
+        return 0;
 
     uint32 read = 0;
     uint32 firstBlockId = offset / VFS_BLOCK_SIZE;
@@ -157,6 +161,8 @@ bool VfsFile::Remove()
 
 bool VfsFile::RemoveDirectoryEntry(uint32 inodeID)
 {
+    assert(mINode.type == INodeType::Directory);
+
     bool found = false;
     for (uint32 i = 0; i < mINode.usage; ++i)
     {
@@ -182,17 +188,31 @@ bool VfsFile::RemoveDirectoryEntry(uint32 inodeID)
     return found;
 }
 
+bool VfsFile::AddDirectoryEntry(const Directory& dir)
+{
+    assert(mINode.type == INodeType::Directory);
+
+    if (WriteOffset(sizeof(Directory), mINode.usage * sizeof(Directory), &dir)
+        != sizeof(Directory))
+    {
+        return false;
+    }
+
+    mINode.usage++;
+    return true;
+}
+
 int32 VfsFile::Read(uint32 bytes, void* data)
 {
     uint32 bytesRead = ReadOffset(bytes, mCursor, data);
-    mCursor += bytes;
+    mCursor += bytesRead;
     return bytesRead;
 }
 
 int32 VfsFile::Write(uint32 bytes, const void* data)
 {
     uint32 bytesWritten = WriteOffset(bytes, mCursor, data);
-    mCursor += bytes;
+    mCursor += bytesWritten;
     return bytesWritten;
 }
 

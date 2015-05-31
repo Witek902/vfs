@@ -8,6 +8,8 @@
 #include "vfsfile.hpp"
 #include <vector>
 #include <string>
+#include <set>
+#include <memory>
 
 // block size in bytes
 #define VFS_BLOCK_SIZE 4096
@@ -26,6 +28,7 @@ class Vfs final
 
     FILE* mImage;
     Superblock mSuperblock;
+    std::set<VfsFile*> mOpenedFiles;
 
     /**
      * Reserve a single item in a bitmap (write bit "1" in an empty field).

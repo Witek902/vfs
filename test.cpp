@@ -52,9 +52,55 @@ void DirTest()
     vfs.DebugPrint();
 }
 
+void FileTest()
+{
+    Vfs vfs("test.bin");
+    vfs.Init(16 * 1024 * 1024);
+
+    assert(true == vfs.CreateDir("aaa"));
+
+    VfsFile* file;
+    int data;
+    const int refData = 0x12345678;
+
+    // open non-existing file
+    file = vfs.OpenFile("aaa/file", false);
+    assert(nullptr == file);
+
+    file = vfs.OpenFile("aaa/file", true);
+    assert(nullptr != file);
+    assert(file->Read(sizeof(data), &data) == 0); // read empty file
+    assert(file->Write(sizeof(refData), &refData) == sizeof(data)); // write something
+    assert(file->Seek(0, VfsSeekMode::Begin) == 0); // seek to the beginning
+    assert(file->Read(sizeof(data), &data) == sizeof(data)); // read written data
+    assert(refData == data); // verify
+    assert(file->Read(sizeof(data), &data) == 0); // read after file end
+    assert(vfs.Close(file) == true); // close file
+    assert(vfs.Close(file) == false); // try to close again
+
+    std::cout << "==================\n";
+    vfs.DebugPrint();
+
+    // move the file to a new directory
+    assert(true == vfs.CreateDir("bbb"));
+    assert(true == vfs.Rename("aaa/file", "bbb/file"));
+
+    file = vfs.OpenFile("bbb/file", true); // try to create existing file
+    assert(nullptr == file);
+    file = vfs.OpenFile("bbb/file", false);
+    assert(nullptr != file);
+    assert(file->Read(sizeof(data), &data) == sizeof(data));
+    assert(refData == data);
+    assert(vfs.Close(file) == true);
+
+    std::cout << "==================\n";
+    vfs.DebugPrint();
+}
+
 int main(int argc, char** argv)
 {
     DirTest();
+    FileTest();
 
     getchar();
     return 0;

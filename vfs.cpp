@@ -161,9 +161,18 @@ void Vfs::ReadINode(uint32 id, INode& inode)
     assert(fread(&inode, sizeof(INode), 1, mImage) == 1);
 }
 
+//=================================================================================================
 
 Vfs::~Vfs()
 {
+    if (!mOpenedFiles.empty())
+    {
+        LOG_DEBUG(mOpenedFiles.size() << " files were not closed");
+        for (auto& ptr : mOpenedFiles)
+            delete ptr;
+        mOpenedFiles.clear();
+    }
+
     if (mImage)
         fclose(mImage);
 }
@@ -219,29 +228,75 @@ bool Vfs::Init(uint32 size)
 
 VfsFile* Vfs::OpenFile(const std::string& path, bool create)
 {
+    uint32 inodeID, parentInodeID;
+    GetINodeByPath(path, inodeID, parentInodeID);
+
     if (create)
     {
-        // uint32 inodeId = GetINodeByPath(path, true);
+        if (inodeID != INVALID_INDEX)
+        {
+            LOG_ERROR("Path '" << path << "' already exists");
+            return nullptr;
+        }
+
+        // create an inode for the new file
+        inodeID = ReserveINode();
+        if (inodeID == INVALID_INDEX)
+        {
+            LOG_ERROR("Failed to reserve inode for a file");
+            return nullptr;
+        }
+
+        INode inode;
+        inode.type = INodeType::File;
+        WriteINode(inodeID, inode);
+
+        // NOTE: name was extracted in GetINodeByPath()
+        std::string fileName = NameFromPath(path);
+        Directory dirEntry;
+        dirEntry.inodeID = inodeID;
+        strcpy(dirEntry.name, fileName.c_str());
+
+        // update parent directory table
+        VfsFile parentDirFile(this, parentInodeID);
+        if (!parentDirFile.AddDirectoryEntry(dirEntry))
+        {
+            LOG_ERROR("Failed create directory");
+            ReleaseINode(inodeID);
+            return false;
+        }
     }
     else
     {
-
+        if (inodeID == INVALID_INDEX)
+        {
+            LOG_ERROR("Invalid path: " << path);
+            return false;
+        }
+    }
+    
+    VfsFile* fileHandle = new VfsFile(this, inodeID, false);
+    if (fileHandle->mINode.type != INodeType::File)
+    {
+        delete fileHandle;
+        LOG_ERROR("Path '" << path << "' is not a file");
+        return nullptr;
     }
 
-    // 1. find parent directory inode
-    // 2. find the file name in the directory
-    //      a) if not found and create == true
-    //          * allocate file inode and add to the directory
-    //      b) if not found and create == false
-    //          * return error
-    // return new VfsFile(this, 0); // TODO
-
-    return nullptr;
+    mOpenedFiles.insert(fileHandle);
+    return fileHandle;
 }
 
 bool Vfs::Close(VfsFile* file)
 {
-    // TODO: write Inode
+    auto it = mOpenedFiles.find(file);
+    if (it == mOpenedFiles.end())
+    {
+        LOG_ERROR("This file is not opended");
+        return false;
+    }
+
+    mOpenedFiles.erase(it);
     delete file;
     return true;
 }
@@ -270,6 +325,7 @@ bool Vfs::CreateDir(const std::string& path)
         return false;
     }
 
+    // NOTE: name was extracted in GetINodeByPath()
     std::string dirName = NameFromPath(path);
     Directory dirEntry;
     dirEntry.inodeID = inodeID;
@@ -281,14 +337,12 @@ bool Vfs::CreateDir(const std::string& path)
 
     // update parent directory table
     VfsFile parentDirFile(this, parentInodeID);
-    if (parentDirFile.WriteOffset(sizeof(Directory), parentDirFile.mINode.usage * sizeof(Directory),
-        &dirEntry) != sizeof(Directory))
+    if (!parentDirFile.AddDirectoryEntry(dirEntry))
     {
         LOG_ERROR("Failed create directory");
         ReleaseINode(inodeID);
         return false;
     }
-    parentDirFile.mINode.usage++;
 
     return true;
 }
@@ -320,6 +374,7 @@ bool Vfs::Rename(const std::string& src, const std::string& dest)
     }
 
     // create new directory table entry
+    // NOTE: name was extracted in GetINodeByPath()
     std::string dirName = NameFromPath(dest);
     Directory dirEntry;
     dirEntry.inodeID = oldInodeID;
@@ -328,13 +383,11 @@ bool Vfs::Rename(const std::string& src, const std::string& dest)
     // update new parent directory table
     {
         VfsFile newParentDirFile(this, newParentInodeID);
-        if (newParentDirFile.WriteOffset(sizeof(Directory),
-            newParentDirFile.mINode.usage * sizeof(Directory), &dirEntry) != sizeof(Directory))
+        if (!newParentDirFile.AddDirectoryEntry(dirEntry))
         {
             LOG_ERROR("Failed move object");
             return false;
         }
-        newParentDirFile.mINode.usage++;
     }
 
     // update old parent directory table

@@ -30,6 +30,7 @@ class VfsFile final
     bool Remove();
 
     bool RemoveDirectoryEntry(uint32 inodeID);
+    bool AddDirectoryEntry(const Directory& dir);
 
 public:
     ~VfsFile();
