@@ -263,7 +263,7 @@ VfsFile* Vfs::OpenFile(const std::string& path, bool create)
         VfsFile parentDirFile(this, parentInodeID);
         if (!parentDirFile.AddDirectoryEntry(dirEntry))
         {
-            LOG_ERROR("Failed create directory");
+            LOG_ERROR("Failed create file");
             ReleaseINode(inodeID);
             return nullptr;
         }

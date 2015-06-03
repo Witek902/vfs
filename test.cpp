@@ -98,7 +98,6 @@ void FileTest()
     vfs.DebugPrint();
 }
 
-
 void BigFileTest()
 {
     const uint32 fsSize = 64 * 1024 * 1024;
@@ -147,11 +146,52 @@ void BigFileTest()
     VFS_ASSERT(read == written);
 }
 
+void FileStressTest()
+{
+    const uint32 fsSize = 16 * 1024 * 1024;
+    std::vector<std::string> files;
+
+    VfsFile* file;
+    Vfs vfs("test.bin");
+    VFS_ASSERT(vfs.Init(fsSize));
+
+    for (int i = 0; i < 2000; ++i)
+    {
+        if (files.size() > 0 && (i % 4 == 3)) // remove random file with 25% probability
+        {
+            size_t index = rand() % files.size();
+            const std::string& path = files[index];
+            VFS_ASSERT(vfs.Remove(path));
+
+            files[index] = files[files.size() - 1];
+            files.pop_back();
+        }
+        else // add random file with 75% probability
+        {
+            std::string fileName = "f" + std::to_string(i);
+            file = vfs.OpenFile(fileName, true);
+            if (file != nullptr)
+            {
+                files.push_back(fileName);
+                size_t size = rand() % (64 * 1024) + 1;
+                uint8* buff = new uint8[size];
+                memset(buff, i, size);
+
+                file->Write(size, buff);
+                vfs.Close(file);
+
+                delete buff;
+            }
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     DirTest();
     FileTest();
     BigFileTest();
+    FileStressTest();
 
     std::cout << "DONE." << std::endl;
     getchar();
