@@ -126,7 +126,7 @@ void Vfs::GetINodeByPath(const std::string& path, uint32& inodeID, uint32& paren
         bool found = false;
 
         Directory dirEntry;
-        VfsFile dirFile(this, currINodeID);
+        VfsFile dirFile(this, currINodeID, true);
         // NOTE: this is slow - O(n) worst case time complexity
         for (uint32 i = 0; i < dirFile.mINode.usage; ++i)
         {
@@ -432,7 +432,7 @@ bool Vfs::List(const std::string& path, std::vector<std::string>& nodes)
         return false;
     }
 
-    VfsFile dirFile(this, inodeID);
+    VfsFile dirFile(this, inodeID, true);
     if (dirFile.mINode.type != INodeType::Directory)
     {
         LOG_ERROR("The path '" << path << "' is not a directory");
@@ -475,7 +475,7 @@ void Vfs::DebugPrint()
         Node dir = dirStack.top();
         dirStack.pop();
 
-        VfsFile file(this, dir.inodeID);
+        VfsFile file(this, dir.inodeID, true);
         for (uint32 i = 0; i < file.mINode.usage; ++i)
         {
             Directory dirEntry;

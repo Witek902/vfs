@@ -13,9 +13,10 @@ class VfsFile final
     uint32 mCursor;
     uint32 mINodeID;
     INode mINode;
+    bool mReadOnly;
 
     VfsFile(const VfsFile& file) = delete;
-    VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly = true);
+    VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly = false);
 
     // translate block index into real index in the VFS
     uint32 GetRealBlockID(uint32 id, bool allocate);

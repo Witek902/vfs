@@ -16,13 +16,14 @@ VfsFile::VfsFile(Vfs* vfs, uint32 inodeID, bool readOnly)
     mVFS = vfs;
     mCursor = 0;
     mINodeID = inodeID;
+    mReadOnly = readOnly;
     mVFS->ReadINode(mINodeID, mINode);
-    // TODO: read only support
 }
 
 VfsFile::~VfsFile()
 {
-    mVFS->WriteINode(mINodeID, mINode);
+    if (!mReadOnly)
+        mVFS->WriteINode(mINodeID, mINode);
 }
 
 bool VfsFile::ExtendPointers()
@@ -278,6 +279,12 @@ int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
 {
     if (bytes == 0)
         return 0;
+
+    if (mReadOnly)
+    {
+        LOG_DEBUG("Trying to write read-only file");
+        return 0;
+    }
 
     uint32 written = 0;
     uint32 firstBlockId = offset / VFS_BLOCK_SIZE;
