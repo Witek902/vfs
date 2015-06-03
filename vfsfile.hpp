@@ -21,7 +21,7 @@ class VfsFile final
     uint32 GetRealBlockID(uint32 id, bool allocate);
 
     // reorganize block pointers if there is no left space
-    bool ExtendPointers(uint8 newDepth);
+    bool ExtendPointers();
 
     // read data without affecting cursor
     int32 ReadOffset(uint32 bytes, uint32 offset, void* data);

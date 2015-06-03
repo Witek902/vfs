@@ -101,8 +101,9 @@ void FileTest()
 
 void BigFileTest()
 {
-    const uint32 fsSize = 16 * 1024 * 1024;
-    const int salt = 0x2356abef;
+    const uint32 fsSize = 36 * 1024 * 1024;
+    const uint32 bufferSize = 40841; // (in bytes)
+    uint8 buffer[bufferSize];
 
     VfsFile* file;
     Vfs vfs("test.bin");
@@ -110,30 +111,35 @@ void BigFileTest()
 
     file = vfs.OpenFile("file", true);
     uint32 written = 0;
-    for (uint32 i = 0; i < fsSize / sizeof(int); ++i)
+    for (uint32 i = 0; i < fsSize; i += bufferSize)
     {
-        uint32 data = i + salt;
-        uint32 ret = file->Write(sizeof(data), &data);
+        for (uint32 j = 0; j < bufferSize; j++)
+            buffer[j] = static_cast<uint8>(i + j);
+
+        uint32 ret = file->Write(sizeof(buffer), buffer);
         written += ret;
+        if (ret < sizeof(buffer)) // EOF
+            break;
     }
     VFS_ASSERT(file->Seek(0, VfsSeekMode::Curr) == written);
     vfs.Close(file);
 
     std::cout << "Bytes written: " << written << std::endl;
     VFS_ASSERT(written < fsSize);
-    // VFS_ASSERT(written > fsSize / 2);
+    VFS_ASSERT(written > fsSize / 2);
 
 
     file = vfs.OpenFile("file", false);
     uint32 read = 0;
-    for (uint32 i = 0; i < fsSize / sizeof(int); ++i)
+    for (uint32 i = 0; i < fsSize; i += bufferSize)
     {
-        int data;
-        uint32 ret = file->Read(sizeof(int), &data);
-        if (ret < sizeof(int)) // EOF
-            break;
-        VFS_ASSERT(data == i + salt);
+        uint32 ret = file->Read(sizeof(buffer), buffer);
         read += ret;
+        if (ret < sizeof(buffer)) // EOF
+            break;
+
+        for (uint32 j = 0; j < ret; j++)
+            VFS_ASSERT(buffer[j] == static_cast<uint8>(i + j));
     }
     VFS_ASSERT(file->Seek(0, VfsSeekMode::Curr) == read);
     vfs.Close(file);
@@ -147,6 +153,7 @@ int main(int argc, char** argv)
     FileTest();
     BigFileTest();
 
+    std::cout << "DONE." << std::endl;
     getchar();
     return 0;
 }
