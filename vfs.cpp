@@ -18,7 +18,7 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
     fseek(mImage, VFS_BLOCK_SIZE * firstBitmapBlock, SEEK_SET);
 
     // iterate bitmap bytes
-    for (uint32 i = 0; i < bitmapSize * VFS_BLOCK_SIZE; ++i) 
+    for (uint32 i = 0; i < bitmapSize / 8; ++i) 
     {
         uint8 byte = 0;
         VFS_ASSERT(1 == fread(&byte, 1, 1, mImage));
@@ -47,7 +47,7 @@ uint32 Vfs::ReserveBitmap(uint32 firstBitmapBlock, uint32 bitmapSize)
 // NOTE: this is slow - O(n) worst case time complexity
 void Vfs::ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id)
 {
-    VFS_ASSERT(id < 8 * VFS_BLOCK_SIZE * bitmapSize);
+    VFS_ASSERT(id < bitmapSize);
     uint32 byteOffset = VFS_BLOCK_SIZE * firstBitmapBlock + id / 8;
     uint8 mask = 1 << (id % 8);
 
@@ -64,22 +64,22 @@ void Vfs::ReleaseBitmap(uint32 firstBitmapBlock, uint32 bitmapSize, uint32 id)
 
 uint32 Vfs::ReserveBlock()
 {
-    return ReserveBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBitmapBlocks);
+    return ReserveBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBlocks);
 }
 
 void Vfs::ReleaseBlock(uint32 id)
 {
-    ReleaseBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBitmapBlocks, id);
+    ReleaseBitmap(mSuperblock.inodeBitmapBlocks + 1, mSuperblock.dataBlocks, id);
 }
 
 uint32 Vfs::ReserveINode()
 {
-    return ReserveBitmap(1, mSuperblock.inodeBitmapBlocks);
+    return ReserveBitmap(1, VFS_BLOCK_SIZE * mSuperblock.inodeBlocks / sizeof(INode));
 }
 
 void Vfs::ReleaseINode(uint32 id)
 {
-    ReleaseBitmap(1, mSuperblock.inodeBitmapBlocks, id);
+    ReleaseBitmap(1, VFS_BLOCK_SIZE * mSuperblock.inodeBlocks / sizeof(INode), id);
 }
 
 std::string Vfs::NameFromPath(const std::string& path)
@@ -206,6 +206,7 @@ bool Vfs::Init(uint32 size)
                                  mSuperblock.dataBitmapBlocks +
                                  mSuperblock.inodeBitmapBlocks +
                                  mSuperblock.inodeBlocks;
+    mSuperblock.dataBlocks = mSuperblock.blocks - mSuperblock.firstDataBlock;
 
     // clear VFS file
     static uint8 clearBlock[VFS_BLOCK_SIZE] = { 0x0 };

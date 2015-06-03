@@ -101,7 +101,7 @@ void FileTest()
 
 void BigFileTest()
 {
-    const uint32 fsSize = 36 * 1024 * 1024;
+    const uint32 fsSize = 64 * 1024 * 1024;
     const uint32 bufferSize = 40841; // (in bytes)
     uint8 buffer[bufferSize];
 

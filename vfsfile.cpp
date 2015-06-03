@@ -27,38 +27,30 @@ VfsFile::~VfsFile()
 
 bool VfsFile::ExtendPointers()
 {
-    uint8 newDepth = mINode.ptrDepth + 1;
-    VFS_ASSERT(newDepth < 3);
+    VFS_ASSERT(mINode.ptrDepth < 2);
 
-    if (newDepth == 1)
+    uint32 pointersBlockId = mVFS->ReserveBlock();
+    if (pointersBlockId == INVALID_INDEX)
     {
-        uint32 pointersBlockId = mVFS->ReserveBlock();
-        if (pointersBlockId == INVALID_INDEX)
-        {
-            LOG_DEBUG("No blocks left");
-            return false;
-        }
-
-        uint32 offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + pointersBlockId);
-        VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
-
-        // copy old direct pointers to the new pointers block
-        VFS_ASSERT(fwrite(mINode.blockPtr, sizeof(uint32), INODE_PTRS, mVFS->mImage) == INODE_PTRS);
-        // initialize the rest of the pointers with invalid indicies
-        for (uint32 i = INODE_PTRS; i < VFS_PTRS_PER_BLOCK; ++i)
-            VFS_ASSERT(fwrite(&INVALID_INDEX, sizeof(uint32), 1, mVFS->mImage) == 1);
-
-        // update inode's pointers
-        mINode.blockPtr[0] = pointersBlockId;
-        for (uint32 i = 1; i < INODE_PTRS; ++i)
-            mINode.blockPtr[i] = INVALID_INDEX;
-    }
-    else if (newDepth == 2)
-    {
-        // TODO
+        LOG_DEBUG("No blocks left");
+        return false;
     }
 
-    mINode.ptrDepth = newDepth;
+    uint32 offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + pointersBlockId);
+    VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+
+    // copy old indode's pointers to the new pointers block
+    VFS_ASSERT(fwrite(mINode.blockPtr, sizeof(uint32), INODE_PTRS, mVFS->mImage) == INODE_PTRS);
+    // initialize the rest of the pointers with invalid indicies
+    for (uint32 i = INODE_PTRS; i < VFS_PTRS_PER_BLOCK; ++i)
+        VFS_ASSERT(fwrite(&INVALID_INDEX, sizeof(uint32), 1, mVFS->mImage) == 1);
+
+    // update inode's pointers
+    mINode.blockPtr[0] = pointersBlockId;
+    for (uint32 i = 1; i < INODE_PTRS; ++i)
+        mINode.blockPtr[i] = INVALID_INDEX;
+
+    mINode.ptrDepth++;
     return true;
 }
 
@@ -73,7 +65,6 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
     {
         if (id >= INODE_PTRS)
         {
-
             if (!ExtendPointers())
                 return INVALID_INDEX;
         }
@@ -95,12 +86,74 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
     if (mINode.ptrDepth == 1) // we have indirect block pointers
     {
         if (id >= INODE_PTRS * VFS_PTRS_PER_BLOCK)
-            return INVALID_INDEX; // TODO: extend pointers
+        {
+            if (!ExtendPointers())
+                return INVALID_INDEX;
+        }
+        else
+        {
+            uint32 inodePtrId = id / VFS_PTRS_PER_BLOCK;
+            uint32 blockPtrId = id % VFS_PTRS_PER_BLOCK;
 
-        uint32 inodePtrId = id / VFS_PTRS_PER_BLOCK;
-        uint32 blockPtrId = id % VFS_PTRS_PER_BLOCK;
+            // reserve block for indirect pointers
+            if (mINode.blockPtr[inodePtrId] == INVALID_INDEX && allocate)
+            {
+                if ((mINode.blockPtr[inodePtrId] = mVFS->ReserveBlock()) == INVALID_INDEX)
+                {
+                    LOG_DEBUG("No blocks left");
+                    return INVALID_INDEX;
+                }
 
-        // reserve block for direct pointers
+                // initialize allocated pointers block (write invalid indicies)
+                offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock +
+                                           mINode.blockPtr[inodePtrId]);
+                VFS_ASSERT(offset < mVFS->mSuperblock.vfsSize);
+                VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+                for (uint32 i = 0; i < VFS_PTRS_PER_BLOCK; ++i)
+                    VFS_ASSERT(fwrite(&INVALID_INDEX, sizeof(uint32), 1, mVFS->mImage) == 1);
+            }
+
+            if (mINode.blockPtr[inodePtrId] == INVALID_INDEX)
+                return INVALID_INDEX;
+
+            // read direct pointer from pointers block
+            offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock +
+                                       mINode.blockPtr[inodePtrId]);
+            offset += sizeof(uint32) * blockPtrId;
+            VFS_ASSERT(offset < mVFS->mSuperblock.vfsSize);
+            VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+            VFS_ASSERT(fread(&realBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
+
+            // reserve data block if not reserved yet
+            if (realBlockId == INVALID_INDEX && allocate)
+            {
+                if ((realBlockId = mVFS->ReserveBlock()) == INVALID_INDEX)
+                {
+                    LOG_DEBUG("No blocks left");
+                    return INVALID_INDEX;
+                }
+
+                // write direct pointer to pointers block
+                VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+                VFS_ASSERT(fwrite(&realBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
+            }
+        }
+    }
+
+    if (mINode.ptrDepth == 2) // we have double-indirect block pointers
+    {
+        if (id >= INODE_PTRS * VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK)
+            return INVALID_INDEX; // we can't extend pointers further
+
+        uint32 inodePtrId = id / (VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK);
+        id -= inodePtrId * (VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK);
+        uint32 blockPtrId = id / VFS_PTRS_PER_BLOCK;
+        uint32 secondBlockPtrId = id % VFS_PTRS_PER_BLOCK;
+
+        VFS_ASSERT(blockPtrId < VFS_PTRS_PER_BLOCK);
+        VFS_ASSERT(inodePtrId < INODE_PTRS);
+
+        // reserve block for double-indirect pointers
         if (mINode.blockPtr[inodePtrId] == INVALID_INDEX && allocate)
         {
             if ((mINode.blockPtr[inodePtrId] = mVFS->ReserveBlock()) == INVALID_INDEX)
@@ -110,19 +163,55 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
             }
 
             // initialize allocated pointers block (write invalid indicies)
-            offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[inodePtrId]);
+            offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock +
+                                       mINode.blockPtr[inodePtrId]);
             VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
             for (uint32 i = 0; i < VFS_PTRS_PER_BLOCK; ++i)
                 VFS_ASSERT(fwrite(&INVALID_INDEX, sizeof(uint32), 1, mVFS->mImage) == 1);
         }
 
-        // read direct pointer from pointers block
+        if (mINode.blockPtr[inodePtrId] == INVALID_INDEX)
+            return INVALID_INDEX;
+
+        // read indirect pointer from pointers block
+        uint32 ptrBlockId = INVALID_INDEX;
         offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + mINode.blockPtr[inodePtrId]);
         offset += sizeof(uint32) * blockPtrId;
+        VFS_ASSERT(offset < mVFS->mSuperblock.vfsSize);
+        VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+        VFS_ASSERT(fread(&ptrBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
+
+        // reserve pointers block if not reserved yet
+        if (ptrBlockId == INVALID_INDEX && allocate)
+        {
+            if ((ptrBlockId = mVFS->ReserveBlock()) == INVALID_INDEX)
+            {
+                LOG_DEBUG("No blocks left");
+                return INVALID_INDEX;
+            }
+
+            // initialize allocated pointers block (write invalid indicies)
+            uint32 offset2 = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + ptrBlockId);
+            VFS_ASSERT(fseek(mVFS->mImage, offset2, SEEK_SET) == 0);
+            for (uint32 i = 0; i < VFS_PTRS_PER_BLOCK; ++i)
+                VFS_ASSERT(fwrite(&INVALID_INDEX, sizeof(uint32), 1, mVFS->mImage) == 1);
+
+            // write indirect pointer to pointers block
+            VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
+            VFS_ASSERT(fwrite(&ptrBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
+        }
+
+        if (ptrBlockId == INVALID_INDEX)
+            return INVALID_INDEX;
+
+        // read indirect pointer from pointers block
+        offset = VFS_BLOCK_SIZE * (mVFS->mSuperblock.firstDataBlock + ptrBlockId);
+        offset += sizeof(uint32) * secondBlockPtrId;
+        VFS_ASSERT(offset < mVFS->mSuperblock.vfsSize);
         VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
         VFS_ASSERT(fread(&realBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
 
-        // reserve data block if not reserved yet
+        // reserve pointers block if not reserved yet
         if (realBlockId == INVALID_INDEX && allocate)
         {
             if ((realBlockId = mVFS->ReserveBlock()) == INVALID_INDEX)
@@ -131,32 +220,11 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
                 return INVALID_INDEX;
             }
 
-            // write direct pointer to pointers block
+            // write indirect pointer to pointers block
             VFS_ASSERT(fseek(mVFS->mImage, offset, SEEK_SET) == 0);
             VFS_ASSERT(fwrite(&realBlockId, sizeof(uint32), 1, mVFS->mImage) == 1);
         }
     }
-
-    /*
-    if (mINode.ptrDepth == 2) // we have double-indirect block pointers
-    {
-        if (id >= INODE_PTRS * VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK)
-            return INVALID_INDEX; // we can't extend pointers further
-
-        uint32 inodePtrId = id / (VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK);
-        uint32 blockPtrId = id % (VFS_PTRS_PER_BLOCK * VFS_PTRS_PER_BLOCK); // TODO
-        uint32 secondBlockPtrId = id % VFS_PTRS_PER_BLOCK;
-
-        if (mINode.blockPtr[id] == INVALID_INDEX && allocate)
-        {
-            if ((mINode.blockPtr[id] = mVFS->ReserveBlock()) == INVALID_INDEX)
-            {
-                LOG_DEBUG("No blocks left");
-                return INVALID_INDEX;
-            }
-        }
-    }
-    */
 
     return realBlockId;
 }

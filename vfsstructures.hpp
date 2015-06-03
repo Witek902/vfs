@@ -15,6 +15,7 @@ struct Superblock
     uint32 blocks;            //< total number of blocks
     uint32 vfsSize;           //< total VFS size (in bytes)
     uint32 inodeBlocks;       //< total blocks containing inodes
+    uint32 dataBlocks;        //< total blocks containing data
     uint32 inodeBitmapBlocks; //< number of blocks containing inodes bitmap
     uint32 dataBitmapBlocks;  //< number of blocks containing data blocks bitmap
     uint32 firstDataBlock;    //< ID of the first block containing data
