@@ -25,10 +25,10 @@ class VfsFile final
     bool ExtendPointers();
 
     // read data without affecting cursor
-    int32 ReadOffset(uint32 bytes, uint32 offset, void* data);
+    uint32 ReadOffset(uint32 bytes, uint32 offset, void* data);
 
     // write data without affecting cursor
-    int32 WriteOffset(uint32 bytes, uint32 offset, const void* data);
+    uint32 WriteOffset(uint32 bytes, uint32 offset, const void* data);
 
     // remove all file blocks (or directory table if empty)
     bool Remove();
@@ -45,7 +45,7 @@ public:
      * @param data  Target buffer pointer
      * @return      Number of bytes read or -1 on error
      */
-    int32 Read(uint32 bytes, void* data);
+    uint32 Read(uint32 bytes, void* data);
 
     /**
      * @brief Write data to the file
@@ -53,7 +53,7 @@ public:
      * @param data  Source buffer pointer
      * @return      Number of bytes written or -1 on error
      */
-    int32 Write(uint32 bytes, const void* data);
+    uint32 Write(uint32 bytes, const void* data);
 
     /**
      * @brief Change file cursor

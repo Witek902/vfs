@@ -10,6 +10,10 @@ ADD_DEFINITIONS("-Wall -Wpedantic")
 
 add_executable(vfsTest test.cpp ${VFS_SOURCES} ${VFS_HEADERS})
 
+IF(CMAKE_BUILD_TYPE MATCHES "Debug")
+    ADD_DEFINITIONS("-D_DEBUG")
+ENDIF(CMAKE_BUILD_TYPE MATCHES "Debug")
+
 add_executable(vmkfs tools/vmkfs.cpp ${VFS_SOURCES} ${VFS_HEADERS})
 add_executable(vmkdir tools/vmkdir.cpp ${VFS_SOURCES} ${VFS_HEADERS})
 add_executable(vcp tools/vcp.cpp ${VFS_SOURCES} ${VFS_HEADERS})

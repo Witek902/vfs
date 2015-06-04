@@ -236,7 +236,7 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
     return realBlockId;
 }
 
-int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
+uint32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
 {
     if (offset >= mINode.size)
         return 0;
@@ -281,7 +281,7 @@ int32 VfsFile::ReadOffset(uint32 bytes, uint32 offset, void* data)
     return read;
 }
 
-int32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
+uint32 VfsFile::WriteOffset(uint32 bytes, uint32 offset, const void* data)
 {
     if (bytes == 0)
         return 0;
@@ -393,14 +393,14 @@ bool VfsFile::AddDirectoryEntry(const Directory& dir)
     return true;
 }
 
-int32 VfsFile::Read(uint32 bytes, void* data)
+uint32 VfsFile::Read(uint32 bytes, void* data)
 {
     uint32 bytesRead = ReadOffset(bytes, mCursor, data);
     mCursor += bytesRead;
     return bytesRead;
 }
 
-int32 VfsFile::Write(uint32 bytes, const void* data)
+uint32 VfsFile::Write(uint32 bytes, const void* data)
 {
     uint32 bytesWritten = WriteOffset(bytes, mCursor, data);
     mCursor += bytesWritten;

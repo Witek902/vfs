@@ -18,7 +18,13 @@
 // inode size in bytes
 #define VFS_INODE_SIZE (4*16)
 
-#define VFS_MAGIC 'vfs!'
+#define VFS_MAGIC 0x76667321
+
+struct PathInfo
+{
+    uint32 size;
+    bool directory;
+};
 
 /**
  * @brief Class representing VFS
@@ -110,6 +116,11 @@ public:
      * @brief List all files and directories in a directory
      */
     bool List(const std::string& path, std::vector<std::string>& nodes);
+
+    /**
+     * @brief Get path info
+     */
+    bool GetInfo(const std::string& path, PathInfo& info);
 
     // TODO:
     // * file system map (used/unused block, fragmentation, etc.)

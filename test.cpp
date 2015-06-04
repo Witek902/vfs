@@ -5,6 +5,7 @@
 #include "vfs.hpp"
 
 #include <assert.h>
+#include <string.h>
 #include <iostream>
 #include <string>
 
@@ -158,54 +159,58 @@ void FileStressTest()
     std::vector<FileInfo> files;
 
     VfsFile* file;
-    Vfs vfs;
-    VFS_ASSERT(vfs.Init("test.bin", fsSize));
 
-    for (int i = 0; i < 2000; ++i)
     {
-        if (files.size() > 0 && (i % 4 == 3)) // remove random file with 25% probability
-        {
-            size_t index = rand() % files.size();
-            const std::string& path = files[index].name;
-            VFS_ASSERT(vfs.Remove(path));
+        Vfs vfs;
+        VFS_ASSERT(vfs.Init("test.bin", fsSize));
 
-            files[index] = files[files.size() - 1];
-            files.pop_back();
-        }
-        else // add random file with 75% probability
+        for (int i = 0; i < 2000; ++i)
         {
-            std::string fileName = "f" + std::to_string(i);
-            file = vfs.OpenFile(fileName, true);
-            if (file != nullptr)
+            if (files.size() > 0 && (i % 4 == 3)) // remove random file with 25% probability
             {
-                uint32 desiredSize = rand() % (64 * 1024) + 1;
-                uint8* buff = new uint8[desiredSize];
-                memset(buff, i, desiredSize);
-                uint32 written = file->Write(desiredSize, buff);
-                VFS_ASSERT(written <= desiredSize);
-                vfs.Close(file);
-                delete buff;
+                size_t index = rand() % files.size();
+                const std::string& path = files[index].name;
+                VFS_ASSERT(vfs.Remove(path));
 
-                FileInfo fileInfo;
-                fileInfo.name = fileName;
-                fileInfo.size = written;
-                files.push_back(fileInfo);
+                files[index] = files[files.size() - 1];
+                files.pop_back();
+            }
+            else // add random file with 75% probability
+            {
+                std::string fileName = "f" + std::to_string(i);
+                file = vfs.OpenFile(fileName, true);
+                if (file != nullptr)
+                {
+                    uint32 desiredSize = rand() % (64 * 1024) + 1;
+                    uint8* buff = new uint8[desiredSize];
+                    memset(buff, i, desiredSize);
+                    uint32 written = file->Write(desiredSize, buff);
+                    VFS_ASSERT(written <= desiredSize);
+                    vfs.Close(file);
+                    delete buff;
+
+                    FileInfo fileInfo;
+                    fileInfo.name = fileName;
+                    fileInfo.size = written;
+                    files.push_back(fileInfo);
+                }
             }
         }
     }
 
-    vfs.Release();
-
-    VFS_ASSERT(vfs.Open("test.bin"));
-    for (const auto& f : files)
     {
-        file = vfs.OpenFile(f.name, false);
-        VFS_ASSERT(file != nullptr);
+        Vfs vfs;
+        VFS_ASSERT(vfs.Open("test.bin"));
+        for (const auto& f : files)
+        {
+            file = vfs.OpenFile(f.name, false);
+            VFS_ASSERT(file != nullptr);
 
-        uint32 size = file->Seek(0, VfsSeekMode::End);
+            uint32 size = file->Seek(0, VfsSeekMode::End);
 
-        VFS_ASSERT(size == f.size);
-        vfs.Close(file);
+            VFS_ASSERT(size == f.size);
+            vfs.Close(file);
+        }
     }
 }
 

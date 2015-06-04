@@ -205,7 +205,7 @@ bool Vfs::Open(const std::string& imagePath)
     }
 
     fseek(mImage, 0, SEEK_SET);
-    if (fwrite(&mSuperblock, sizeof(Superblock), 1, mImage) != 1)
+    if (fread(&mSuperblock, sizeof(Superblock), 1, mImage) != 1)
     {
         LOG_ERROR("Failed to read superblock");
         Release();
@@ -486,6 +486,23 @@ bool Vfs::List(const std::string& path, std::vector<std::string>& nodes)
         nodes.push_back(dirEntry.name);
     }
 
+    return true;
+}
+
+bool Vfs::GetInfo(const std::string& path, PathInfo& info)
+{
+    uint32 inodeID, parentInodeID;
+    GetINodeByPath(path, inodeID, parentInodeID);
+
+    if (inodeID == INVALID_INDEX)
+    {
+        LOG_ERROR("Invalid path: " << path);
+        return false;
+    }
+
+    VfsFile file (this, inodeID, false);
+    info.directory = file.mINode.type == INodeType::Directory;
+    info.size = info.directory ? file.mINode.usage : file.mINode.size;
     return true;
 }
 
