@@ -57,22 +57,22 @@ class Vfs final
     void WriteINode(uint32 id, const INode& inode);
     void ReadINode(uint32 id, INode& inode);
 
-    Vfs() = delete;
-
 public:
     ~Vfs();
+    Vfs();
+
+    void Release();
 
     /**
-     * @brief Open or create filesystem image file.
-     * @param vfsPath Image file path
+     * @brief Open existing filesystem image
      */
-    Vfs(const std::string& vfsPath);
+    bool Open(const std::string& imagePath);
 
     /**
      * @brief Initialize filesystem. This will remove all data
      * @param size Virtual File System size in bytes
      */
-    bool Init(uint32 size);
+    bool Init(const std::string& imagePath, uint32 size);
 
     /**
      * @brief Open a file in the VFS

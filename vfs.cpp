@@ -165,7 +165,17 @@ void Vfs::ReadINode(uint32 id, INode& inode)
 
 //=================================================================================================
 
+Vfs::Vfs()
+{
+    mImage = nullptr;
+}
+
 Vfs::~Vfs()
+{
+    Release();
+}
+
+void Vfs::Release()
 {
     if (!mOpenedFiles.empty())
     {
@@ -176,21 +186,50 @@ Vfs::~Vfs()
     }
 
     if (mImage)
+    {
         fclose(mImage);
+        mImage = nullptr;
+    }
 }
 
-Vfs::Vfs(const std::string& vfsPath)
-{
-    mImage = fopen(vfsPath.c_str(), "w+b");
-    if (mImage == 0)
-        LOG_ERROR("Failed to open VFS");
-}
 
-bool Vfs::Init(uint32 size)
+bool Vfs::Open(const std::string& imagePath)
 {
+    Release();
+
+    mImage = fopen(imagePath.c_str(), "r+b");
     if (mImage == 0)
     {
-        LOG_ERROR("VFS is not open");
+        LOG_ERROR("Failed to open VFS");
+        return false;
+    }
+
+    fseek(mImage, 0, SEEK_SET);
+    if (fwrite(&mSuperblock, sizeof(Superblock), 1, mImage) != 1)
+    {
+        LOG_ERROR("Failed to read superblock");
+        Release();
+        return false;
+    }
+
+    if (mSuperblock.magic != VFS_MAGIC)
+    {
+        LOG_ERROR("Invalid superblock signature");
+        Release();
+        return false;
+    }
+
+    return true;
+}
+
+bool Vfs::Init(const std::string& imagePath, uint32 size)
+{
+    Release();
+
+    mImage = fopen(imagePath.c_str(), "w+b");
+    if (mImage == 0)
+    {
+        LOG_ERROR("Failed to open VFS");
         return false;
     }
 

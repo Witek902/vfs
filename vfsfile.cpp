@@ -66,6 +66,9 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
     {
         if (id >= INODE_PTRS)
         {
+            if (!allocate)
+                return INVALID_INDEX;
+
             if (!ExtendPointers())
                 return INVALID_INDEX;
         }
@@ -88,6 +91,9 @@ uint32 VfsFile::GetRealBlockID(uint32 id, bool allocate)
     {
         if (id >= INODE_PTRS * VFS_PTRS_PER_BLOCK)
         {
+            if (!allocate)
+                return INVALID_INDEX;
+
             if (!ExtendPointers())
                 return INVALID_INDEX;
         }
@@ -409,7 +415,7 @@ uint32 VfsFile::Seek(int32 offset, VfsSeekMode mode)
         mCursor = offset;
         break;
     case VfsSeekMode::End:
-        mCursor += offset;
+        mCursor = mINode.size + offset;
         break;
     case VfsSeekMode::Curr:
         mCursor += offset;
