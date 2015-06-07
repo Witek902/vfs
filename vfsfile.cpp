@@ -424,3 +424,18 @@ uint32 VfsFile::Seek(int32 offset, VfsSeekMode mode)
 
     return mCursor;
 }
+
+std::vector<uint32> VfsFile::GetBlocksMap()
+{
+    std::vector<uint32> result;
+    uint32 blocks = CeilDivide<uint32>(mINode.size, VFS_BLOCK_SIZE);
+
+    for (uint32 i = 0; i < blocks; ++i)
+    {
+        uint32 realBlockId = GetRealBlockID(i, false);
+        if (realBlockId != INVALID_INDEX)
+            result.push_back(realBlockId);
+    }
+
+    return result;
+}

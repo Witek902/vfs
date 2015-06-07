@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <stack>
+#include <iomanip>
 
 #define ROOT_INODE_INDEX 0
 
@@ -496,7 +497,7 @@ bool Vfs::GetInfo(const std::string& path, PathInfo& info)
 
     if (inodeID == INVALID_INDEX)
     {
-        LOG_ERROR("Invalid path: " << path);
+        LOG_DEBUG("Invalid path: " << path);
         return false;
     }
 
@@ -526,6 +527,10 @@ void Vfs::DebugPrint()
     root.name = "<root>";
     dirStack.push(root);
 
+    uint32* blockMap = new uint32 [mSuperblock.blocks];
+    for (uint32 i = 0; i < mSuperblock.blocks; ++i)
+        blockMap[i] = INVALID_INDEX;
+
     while (!dirStack.empty())
     {
         Node dir = dirStack.top();
@@ -551,7 +556,29 @@ void Vfs::DebugPrint()
         if (file.mINode.type == INodeType::Directory)
             type = " [DIR] ";
 
-        std::cout << "* " << dir.inodeID << type << dir.name <<
-            " (" << file.mINode.size << " bytes)\n";
+        std::cout << "* " << std::setw(4) << std::setfill(' ') << dir.inodeID;
+        std::cout << type << dir.name << " (" << file.mINode.size << " bytes)  { ";
+
+        std::vector<uint32> blocks = file.GetBlocksMap();
+        for (uint32 b : blocks)
+        {
+            VFS_ASSERT(b < mSuperblock.blocks);
+            uint32 fsBlock = b + mSuperblock.firstDataBlock;
+            blockMap[fsBlock] = file.mINodeID;
+            std::cout << fsBlock << ' ';
+        }
+        std::cout << '}' << std::endl;
+    }
+
+    std::cout << "BLOCKS MAP:" << std::endl;
+
+    const int perRow = 8;
+    for (uint32 row = 0; row < mSuperblock.blocks; row += perRow)
+    {
+        for (uint32 id = row; id < row + perRow && id < mSuperblock.blocks; id++)
+        {
+            std::cout << std::setw(10) << std::setfill(' ') << blockMap[id] << "  ";
+        }
+        std::cout << std::endl;
     }
 }

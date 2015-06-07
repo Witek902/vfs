@@ -2,6 +2,8 @@
 
 #include "vfsstructures.hpp"
 
+#include <vector>
+
 /**
  * @brief Class representing an open file in the VFS
  */
@@ -35,6 +37,11 @@ class VfsFile final
 
     bool RemoveDirectoryEntry(uint32 inodeID);
     bool AddDirectoryEntry(const Directory& dir);
+
+    /**
+     * Query list of all blocks used by this file.
+     */
+    std::vector<uint32> GetBlocksMap();
 
 public:
     ~VfsFile();

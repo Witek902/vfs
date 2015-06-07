@@ -67,12 +67,26 @@ int CopyDown(Vfs& vfs, int argc, char** argv)
 
 int CopyUp(Vfs& vfs, int argc, char** argv)
 {
+    bool singleCopy = true;
+    PathInfo info;
+    if (vfs.GetInfo(argv[argc - 1], info))
+    {
+        if (info.directory)
+        {
+            singleCopy = false;
+        }
+    }
+
     for (int i = 3; i < argc - 1; ++i)
     {
         std::string source = argv[i];
         std::string dest = argv[argc - 1];
-        dest += '/';
-        dest += source;
+
+        if (!singleCopy)
+        {
+            dest += '/';
+            dest += source;
+        }
 
         /// open source file
         FILE* srcFile = fopen(source.c_str(), "rb");
@@ -105,6 +119,9 @@ int CopyUp(Vfs& vfs, int argc, char** argv)
         vfs.Close(destFile);
         fclose(srcFile);
         std::cout << "Copied '" << source << "' to '" << dest << "'" << std::endl;
+
+        if (singleCopy)
+            break;
     }
 
     return 0;
